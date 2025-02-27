@@ -1,13 +1,12 @@
 %% fMRI Block Design Analysis
-% Efficient Localizer
-% @samhutch @amarvi 10/27/2023
+% Efficient Multifunction fMRI Localizer
+% @samhutch @amarvi 02/27/2025 
 
 %% Set analysis parameters
 
 function prep_analysis_final(subj_id, exp_name)
 
-% run_ids = [7,8,9,10,11]; %check dicom.info for effloc runs!
-run_ids = [16,17,18,19,20]; %check dicom.info for effloc runs!
+run_ids = [7,8,9,10,11]; %check dicom.info for effloc runs!
 dicom_name = 'dicom';
 num_conditions = 6; % including fixation
 block_length = 22;
@@ -20,6 +19,20 @@ TR = 2.0;
 %% Define contrasts (based on para files)
 c = 0;
 c = c+1; contrast.names{c} = ['All-Fix']; contrast.cidleft{c} = [1:5]; contrast.cidright{c} = [0];
+
+%% exp name
+% EMFL exp names:
+%     vis: visual conditions (faces, scenes, bodies, objects, words)
+%     aud: auditory conditions (false belief, false photo, nonwords, quilted audio, arithmetic)
+%     audHalf: half-block analysis for Theory of Mind regions (false belief, false photo)
+% OTHER:
+%     foss: Epstein & Kanwisher (1998)
+%     langloc: Fedorenko et al (2010)
+%     eploc: Jacoby et al (2016) 
+%     spwm: Fedorenko et al (2013)
+%     speechloc: speech localizer
+%     ebavwfa: EBA & VWFA localizer
+%     towerloc: Fischer et al (2016)
 
 if strcmp(exp_name, 'vis')
     c = c+1; contrast.names{c} = ['Fa-O']; contrast.cidleft{c} = [1]; contrast.cidright{c} = [4];
@@ -45,42 +58,37 @@ elseif strcmp(exp_name, 'foss')
     
     block_length = 16;
     num_conditions = 5;
-%    run_ids = [12,13,14,15];
-    run_ids = [15,16,17,18];
+    run_ids = [12,13,14,15];
 elseif strcmp(exp_name, 'langloc')
     c = c+1; contrast.names{c} = ['S-NW']; contrast.cidleft{c} = [1]; contrast.cidright{c} = [2];
     
     block_length = 18;
     num_conditions = 3;
-%    run_ids = [16,17];
-    run_ids = [20,21];
+    run_ids = [16,17];
 elseif strcmp(exp_name, 'speechloc')
     c = c+1; contrast.names{c} = ['NW-QLT']; contrast.cidleft{c} = [1]; contrast.cidright{c} = [2];
     
     block_length = 16;
     num_conditions = 4;
-%     run_ids = [18,19];
-    run_ids=[13,14];
+    run_ids = [18,19];
 elseif strcmp(exp_name, 'spwm')
     c = c+1; contrast.names{c} = ['H-E']; contrast.cidleft{c} = [2]; contrast.cidright{c} = [1];
     
     block_length = 32;
     num_conditions = 3;
-%     run_ids = [21,22];
-    run_ids = [22,23];
+    run_ids = [21,22];
 elseif strcmp(exp_name, 'eploc')
     c = c+1; contrast.names{c} = ['EP-PP']; contrast.cidleft{c} = [1]; contrast.cidright{c} = [2];
     
     block_length = 16;
     num_conditions = 3;
-%    run_ids = [20,21];
-    run_ids = [13,14];
+    run_ids = [20,21];
 elseif strcmp(exp_name, 'towerloc')
     c = c+1; contrast.names{c} = ['P-C']; contrast.cidleft{c} = [1]; contrast.cidright{c} = [2];
     
     block_length = 18;
     num_conditions = 3;
-    run_ids = [1];
+    run_ids = [1]; % !!
 end
  
 %% Flags for analysis
