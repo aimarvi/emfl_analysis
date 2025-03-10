@@ -1,0 +1,5 @@
+Para files for effloc visual conditions go here!
+
+These should have one row for each block, and these three columns:
+
+Block Onset Time | Condition ID Number | Block Duration

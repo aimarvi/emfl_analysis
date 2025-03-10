@@ -1,0 +1,1 @@
+run_recon.sh (in /scripts) will create subject directories here

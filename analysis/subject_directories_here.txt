@@ -1,0 +1,5 @@
+Create subject directories here!
+
+Each should have a copy of startup.m, which you can copy over from the scripts directory
+
+Also, when running analyses, the L2-structure with each subject's information will appear here.
