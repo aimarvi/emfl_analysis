@@ -2,7 +2,15 @@
 % required before getting parcellations for each subject (julian, language,
 % ToM, vwfa, speech, physics, md)
 % Created by: @amarvi 
-% Last edit: 10/02/2023
+% Last edit: 03/11/2025
+% 
+% 
+% args:
+%     subjname (str): subject name
+%     run (int): one of [1,2,3]
+%                which set of transforms to run (runs 1 & 2 take ~24 hours)
+%                you need to run all 3 for all parcels
+%                runs 1,2 can be run concurrently. run 3 requires the first 2 to be finished
 
 function parcel_transform_final(subjname, run)
 
