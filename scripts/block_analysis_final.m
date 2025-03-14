@@ -2,6 +2,22 @@ function [] = block_analysis_final(subj_id,exp_name, unpackFlag, preprocFlag,mak
     runAnalysisFlag, glmSingleFlag, volumeFlag, surfaceFlag, smoothing, para_stem, para_ext)
 %% fMRI Block Design Analysis
 % Efficient Localizer
+% called by prep_analysis_final() for standard fMRI analysis
+% 
+% args:
+%     subj_id (str): subject name
+%     exp_name (str): localizer name (eg. 'vis', 'aud')
+%     flags (int): [0,1]
+%         unpack: unpack dicoms
+%     preproc: apply standard preprocessing steps
+%         makeAnalysis: set up the analysis parameters
+%         runAnalysis: run the actual analysis using the FS-FAST pipeline
+%         glmSingle: run the actual analysis using the GLMsingle pipeline
+%         volume: run the analysis in volume space
+%         surface: run the analysis in surface space
+%     smoothing (int): full-width half-maximum smoothing to apply to the data
+%     para_stem (str): prefix of paradigm file name before the run number (eg. '{subj_id}_run')
+%     para_ext (str): suffix of paradigm file name after the run number, including file extension (eg. '_{exp_name}.para')
 
 %% Setup
 
