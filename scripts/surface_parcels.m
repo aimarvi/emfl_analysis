@@ -1,6 +1,13 @@
+% requires first running convert_parcels_final.m !!
 % move all parcels to the surface
 % julian, vwfa, language, ToM, MD parcels
-% Last Edit: amarvi 03/13/2025
+% Last Edit: amarvi 03/17/2025
+% 
+% args: 
+%     subjname (str): subject name
+% 
+% returns:
+%     none
 
 
 %%% this is all you need to change (hopefully) %%%
@@ -9,12 +16,15 @@ function surface_parcels(subjname)
 SUBJECTS_DIR = '/mindhive/nklab5/projects/efficient_localizer/recons/';
 setenv('SUBJECTS_DIR',SUBJECTS_DIR);
 
-srcParcelDir = '/om2/user/amarvi/parcels/';
+% source parcel directory
+srcParcelDir = '../parcels/';
 
 hemis = {'lh', 'rh'};
 
 dJP = dir([srcParcelDir 'all/*.nii.gz']);
 dLang = dir([srcParcelDir 'EvLab_lang_parcels/langparcel*.nii']);
+dSpeech = dir([srcParcelDir 'speech_parcels/*.nii']);
+dSpeech = dir();
 dToM = dir([srcParcelDir 'ToM_parcels/*.nii.gz']);
 dVWFA = dir([srcParcelDir 'lvwfa.nii.gz']);
 dMD = dir([srcParcelDir 'md/*.nii.gz']);
@@ -158,24 +168,24 @@ for did = 1:length(dToM)
     end
 end
 
-% %% physics parcels
-% outdir = [SUBJECTS_DIR '/../data_analysis/masks/vols/' ...
-%    subjname filesep '/physics_parcels/']; mkdir(outdir);
-% meanfunc_dir = [SUBJECTS_DIR '/../vols_vis/' ...
-%    subjname filesep 'bold/vis.sm3.all/meanfunc.nii.gz'];
-% tform_dir = [SUBJECTS_DIR '/../data_analysis/fsavg2subj_tform/' ...
-%    subjname '/fsavg2func.lta'];
-% 
-%% use the transformation to bring the physics parcels to subject functional space
-%% convert the fsavg space parcel to subject space
-%for did = 1:length(dPhys)
-%    parcel = dPhys(did).name;
-%    cmd = ['mri_vol2vol --mov ' srcParcelDir 'physics/' parcel...
-%        ' --targ ' meanfunc_dir ...
-%        ' --reg ' tform_dir ...
-%        ' --o ' outdir parcel];
-%    unix(cmd);
-%end
+voldir = [SUBJECTS_DIR '/../data_analysis/masks/vols/' ...
+   subjname '/speech_parcels_v2/lang_'];
+outdir = [SUBJECTS_DIR '/../data_analysis/masks/surf/' ...
+   subjname '/speech_parcels_v2/']; mkdir(outdir);
+
+% Transform parcel from CVS volume to subject's anatomial volume
+for did = 1:length(dSpeech)
+    parcel = dSpeech(did).name;
+
+    for hid = 1:length(hemis)
+        hemi = hemis{hid};
+        funcParcelName = [outdir parcel '_smooth_' hemi '.nii.gz'];
+        % Transform parcels from the subject's anatomical volume to the subject's functional volume
+        cmd = ['mri_vol2surf --regheader ' subjname ' --hemi ' hemi ' --mov ' voldir parcel ...
+            ' --surf-fwhm 1 --o ' funcParcelName];
+        unix(cmd);
+    end
+end
 
 diary off
 
