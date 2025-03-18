@@ -7,12 +7,12 @@ function [] = make_L2_final(subj_id, run_ids, dicom_name, exp_name, num_conditio
 % 
 % args:
 %     subj_id (str): subject name (eg. kaneff01)
-%     run_ids ():
-%     dicom_name (str): 
+%     run_ids (int array): run numbers as listed in dicom.info
+%     dicom_name (str): dir housing all .dcm files
 %     exp_name (str): localizer name (eg. vis, aud, audHalf)
 %     num_conditions (int): number of stimulus conditions including fixation (eg. 5+1=6 for EMFL visual)
 %     block_length (int): length of block in localizer, in sec
-%     contrast (str): 
+%     contrast (struct): functional contrasts to be analyzed
 %     TR (int): temporal resolution (IPS) of fMRI scan, in sec
 % 
 % returns:
