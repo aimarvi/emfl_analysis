@@ -13,7 +13,7 @@ function [] = make_L2_final(subj_id, run_ids, dicom_name, exp_name, num_conditio
 %     num_conditions (int): number of stimulus conditions including fixation (eg. 5+1=6 for EMFL visual)
 %     block_length (int): length of block in localizer, in sec
 %     contrast (str): 
-%     TR (int): temporal resolution (IPS) of fMRI scan, in msec
+%     TR (int): temporal resolution (IPS) of fMRI scan, in sec
 % 
 % returns:
 %     none

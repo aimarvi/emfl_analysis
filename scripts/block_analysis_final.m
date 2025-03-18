@@ -15,7 +15,7 @@ function [] = block_analysis_final(subj_id,exp_name, unpackFlag, preprocFlag,mak
 %         glmSingle: run the actual analysis using the GLMsingle pipeline
 %         volume: run the analysis in volume space
 %         surface: run the analysis in surface space
-%     smoothing (int): full-width half-maximum smoothing to apply to the data
+%     smoothing (int): full-width half-maximum smoothing to apply to the data (in mm)
 %     para_stem (str): prefix of paradigm file name before the run number (eg. '{subj_id}_run')
 %     para_ext (str): suffix of paradigm file name after the run number, including file extension (eg. '_{exp_name}.para')
 

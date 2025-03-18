@@ -3,24 +3,39 @@
 % @samhutch @amarvi 02/27/2025 
 
 %% Set analysis parameters
+% 
+% args:
+%     subj_id (str): subject name 
+%     exp_name(str): localizer name (see below for full list)
+% 
+% returns:
+%     none
 
 function prep_analysis_final(subj_id, exp_name)
 
-run_ids = [7,8,9,10,11]; %check dicom.info for effloc runs!
+% EMFL runs as listed in scanning protocol
+run_ids = [7,8,9,10,11];
+
+% dir housing all .dcm files
 dicom_name = 'dicom';
-num_conditions = 6; % including fixation
+
+% including fixation (for EMFL visual: 5+1=6)
+num_conditions = 6;
+
+% in seconds
 block_length = 22;
+
+% fwhm smoothing (mm)
 smoothing = '3';
 
-para_stem = [subj_id '_'];
-para_ext = ['_' exp_name '.para'];
+% temporal resolution (sec)
 TR = 2.0;
 
-%% Define contrasts (based on para files)
-c = 0;
-c = c+1; contrast.names{c} = ['All-Fix']; contrast.cidleft{c} = [1:5]; contrast.cidright{c} = [0];
+% paradigm file naming convention
+para_stem = [subj_id '_'];
+para_ext = ['_' exp_name '.para'];
 
-%% exp name
+%% Define contrasts (based on para files)
 % EMFL exp names:
 %     vis: visual conditions (faces, scenes, bodies, objects, words)
 %     aud: auditory conditions (false belief, false photo, nonwords, quilted audio, arithmetic)
@@ -34,6 +49,8 @@ c = c+1; contrast.names{c} = ['All-Fix']; contrast.cidleft{c} = [1:5]; contrast.
 %     ebavwfa: EBA & VWFA localizer
 %     towerloc: Fischer et al (2016)
 
+c = 0;
+c = c+1; contrast.names{c} = ['All-Fix']; contrast.cidleft{c} = [1:5]; contrast.cidright{c} = [0];
 if strcmp(exp_name, 'vis')
     c = c+1; contrast.names{c} = ['Fa-O']; contrast.cidleft{c} = [1]; contrast.cidright{c} = [4];
     c = c+1; contrast.names{c} = ['S-O']; contrast.cidleft{c} = [2]; contrast.cidright{c} = [4];
@@ -92,7 +109,6 @@ elseif strcmp(exp_name, 'towerloc')
 end
  
 %% Flags for analysis
-
 do_volume = 1;
 do_surface = 1;
 unpack = 1;
@@ -102,7 +118,6 @@ do_selxavg = 1;
 do_glmSingle = 0;
 
 %% Run the commands!
-
 clc;
 make_L2_final(subj_id, run_ids, dicom_name, exp_name, num_conditions, block_length, contrast, TR);
 block_analysis_final(subj_id, exp_name, unpack, do_preproc, make_analysis, do_selxavg, ...
