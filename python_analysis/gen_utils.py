@@ -37,14 +37,36 @@ returns:
     return nifti_from_path(path)
 
 def load_betas(subj, exp, split):
+'''
+load in all GLM beta values
+
+args:
+    subj (str): subject name
+    exp (str): localizer name (eg. 'vis', 'aud')
+    split (str): which runs did the analysis use? One of ['all', 'even', 'odd']
+
+returns:
+    (nd.array): data in array format
+'''
     if exp == 'ebavwfa':
-        subj = f'{subj}b'
-    #load with nibabel to numpy
+        subj = f'{subj}b' # ebavwfa localizer was run during a second localizer
+
     path = f'../vols_{exp}/{subj}/bold/{exp}.sm3.{split}/beta.nii.gz'
     return nifti_from_path(path)
 
 def load_parcel(subj, parcellation, roi, hemi):
+'''
+load in anatomical parcel transformed to the subject's native space
 
+args:
+    subj (str): subject name
+    parcellation (str): dir name holding the parcels (eg. 'julian_parcels')
+    roi (str): functional roi for which parcel is defined (eg. 'FFA')
+    hemi (str): hemisphere. one of ['lh', 'rh']
+
+returns:
+    (nd.array): parcel in native space, indicated by non-zero values
+'''
     #because MD has so many parcels, want to get groups
     def md_macroparcels(subj):
         
