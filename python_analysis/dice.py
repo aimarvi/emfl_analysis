@@ -26,6 +26,7 @@ Helper function to compute Dice coefficients
 
 subjs = ['kaneff01'] + [f'kaneff{lid:02d}' for lid in range(6,25)]
 localizers = ['vis', 'foss']
+corrected = False
 
 contrasts = ['Fa-O', 'Fa-O', 'Fa-O', 'S-O', 'S-O', 'S-O', 'O-Scr']
 rois = ['FFA', 'OFA', 'STS', 'PPA', 'OPA', 'RSC', 'LOC']
