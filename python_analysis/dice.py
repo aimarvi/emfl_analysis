@@ -57,10 +57,19 @@ for ridx in range(len(rois)):
                 df1 = compute_dice(sigs_even, sigs_odd, label, df1)
 
             # ----- Between-localizer Dice -----
-            sigs_loc_1 = guts.load_sigs(subj, localizers[0], contrast, 'all')[pidx].squeeze()
-            sigs_loc_2 = guts.load_sigs(subj, localizers[1], contrast, 'all')[pidx].squeeze()
+            if corrected:
+                for run_1 in ['even', 'odd']:
+                    for run_2 in ['even', 'odd']:
+                        sigs_loc_1 = guts.load_sigs(subj, localizers[0], contrast, run_1)[pidx].squeeze()
+                        sigs_loc_2 = guts.load_sigs(subj, localizers[1], contrast, run_2)[pidx].squeeze()
 
-            df1 = compute_dice(sigs_loc_1, sigs_loc_2, 'between', df1)
+                        df1 = compute_dice(sigs_loc_1, sigs_loc_2, 'between', df1)
+
+            else:
+                sigs_loc_1 = guts.load_sigs(subj, localizers[0], contrast, 'all')[pidx].squeeze()
+                sigs_loc_2 = guts.load_sigs(subj, localizers[1], contrast, 'all')[pidx].squeeze()
+
+                df1 = compute_dice(sigs_loc_1, sigs_loc_2, 'between', df1)
 
         except Exception as e:
             print(subj, e)
