@@ -1,4 +1,4 @@
-function run_surface(subj, hemisphere, view, experiment)
+function surface(subj, hemisphere, view, experiment)
 %%
 % script to plot activations in subject native surface space
 % requires read_freesurfer_brain.m and FreeSurfer 7.2.0
