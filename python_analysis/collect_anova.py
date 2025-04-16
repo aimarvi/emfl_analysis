@@ -89,5 +89,3 @@ for roi in tqdm(rois):
                             'hemi': hemi,
                             'parcel': roi      
                         }
-                        
-df1 = df
