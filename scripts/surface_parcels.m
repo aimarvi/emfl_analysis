@@ -45,6 +45,8 @@ tform_dir = [SUBJECTS_DIR '../data_analysis/subj2cvs_tform/' ...
 for did = 1:length(dJP)
     parcel = dJP(did).name;
     pname = strtok(parcel, '.');
+    hemi = [pname(1) 'h'];
+    func_pname = pname(2:end)
     anatParcelName = [outdir pname '_anatomical.nii.gz'];
 
     cmd = ['mri_vol2vol --noDefM3zPath'...
@@ -56,46 +58,41 @@ for did = 1:length(dJP)
         ' --inv-morph'];
     unix(cmd);
 
-    for hid = 1:length(hemis)
-        hemi = hemis{hid};
-        funcParcelName = [outdir pname '_functional_smooth_' hemi '.nii.gz'];
-        % Transform parcels from the subject's anatomical volume to the subject's functional volume
-        cmd = ['mri_vol2surf --regheader ' subjname ' --hemi ' hemi ' --mov ' anatParcelName ...
-            ' --surf-fwhm 1 --o ' funcParcelName];
-        unix(cmd);
-    end
+    funcParcelName = [outdir hemi(1) func_pname '_functional_smoothed.nii.gz'];
+    % Transform parcels from the subject's anatomical volume to the subject's functional volume
+    cmd = ['mri_vol2surf --regheader ' subjname ' --hemi ' hemi ' --mov ' anatParcelName ...
+        ' --surf-fwhm 1 --o ' funcParcelName];
+    unix(cmd);
 end
 
 %% vwfa parcels
+% only does left hemisphere
 outdir = [SUBJECTS_DIR '../data_analysis/masks/surf/' ...
    subjname '/vwfa_parcels/']; mkdir(outdir);
 tform_dir = [SUBJECTS_DIR '../data_analysis/subj2cvsmni152_tform/' ...
    subjname '/final_CVSmorph_tocvs_avg35_inMNI152.m3z'];
 
 for did = 1:length(dVWFA)
-   parcel = dVWFA(did).name;
-   pname = strtok(parcel, '.');
+    parcel = dVWFA(did).name;
+    pname = strtok(parcel, '.');
+ 
+    anatParcelName = [outdir pname '_anatomical.nii.gz'];
+ 
+    % Transform parcel from CVS-MNI152 volume to subject's anatomial volume
+    cmd = ['mri_vol2vol --noDefM3zPath'...
+        ' --mov ' SUBJECTS_DIR subjname '/mri/orig.mgz'...
+        ' --targ ' srcParcelDir parcel ...
+        ' --m3z ' tform_dir ...
+        ' --o ' anatParcelName ...
+        ' --nearest' ...
+        ' --inv-morph'];
+    unix(cmd)
 
-   anatParcelName = [outdir pname '_anatomical.nii.gz'];
-
-   % Transform parcel from CVS-MNI152 volume to subject's anatomial volume
-   cmd = ['mri_vol2vol --noDefM3zPath'...
-       ' --mov ' SUBJECTS_DIR subjname '/mri/orig.mgz'...
-       ' --targ ' srcParcelDir parcel ...
-       ' --m3z ' tform_dir ...
-       ' --o ' anatParcelName ...
-       ' --nearest' ...
-       ' --inv-morph'];
-   unix(cmd)
-
-   for hid = 1:length(hemis)
-        hemi = hemis{hid};
-        funcParcelName = [outdir pname '_functional_smooth_' hemi '.nii.gz'];
-        % Transform parcels from the subject's anatomical volume to the subject's functional volume
-        cmd = ['mri_vol2surf --regheader ' subjname ' --hemi ' hemi ' --mov ' anatParcelName ...
-            ' --surf-fwhm 1 --o ' funcParcelName];
-        unix(cmd);
-    end
+    funcParcelName = [outdir pname '_functional_smoothed.nii.gz'];
+    % Transform parcels from the subject's anatomical volume to the subject's functional volume
+    cmd = ['mri_vol2surf --regheader ' subjname ' --hemi lh --mov ' anatParcelName ...
+        ' --surf-fwhm 1 --o ' funcParcelName];
+    unix(cmd);
 end
 
 %% MD parcels
@@ -119,7 +116,7 @@ for did = 1:length(dMD)
 
    for hid = 1:length(hemis)
         hemi = hemis{hid};
-        funcParcelName = [outdir pname '_functional_smooth_' hemi '.nii.gz'];
+        funcParcelName = [outdir hemi(1) pname '_functional_smoothed.nii.gz'];
         % Transform parcels from the subject's anatomical volume to the subject's functional volume
         cmd = ['mri_vol2surf --regheader ' subjname ' --hemi ' hemi ' --mov ' anatParcelName ...
             ' --surf-fwhm 1 --o ' funcParcelName];
@@ -136,10 +133,11 @@ outdir = [SUBJECTS_DIR '/../data_analysis/masks/surf/' ...
 % convert the fsavg space parcel to subject space
 for did = 1:length(dLang)
    parcel = dLang(did).name;
+   pname = strtok(parcel, '.');
 
     for hid = 1:length(hemis)
         hemi = hemis{hid};
-        funcParcelName = [outdir parcel '_smooth_' hemi '.nii.gz'];
+        funcParcelName = [outdir hemi(1) pname '_functional_smoothed.nii.gz'];
         % Transform parcels from the subject's anatomical volume to the subject's functional volume
         cmd = ['mri_vol2surf --regheader ' subjname ' --hemi ' hemi ' --mov ' voldir parcel ...
             ' --surf-fwhm 1 --o ' funcParcelName];
@@ -160,7 +158,7 @@ for did = 1:length(dToM)
    
     for hid = 1:length(hemis)
         hemi = hemis{hid};
-        funcParcelName = [outdir parcel '_smooth_' hemi '.nii.gz'];
+        funcParcelName = [outdir hemi(1) parcel '_functional_smoothed.nii.gz'];
         % Transform parcels from the subject's anatomical volume to the subject's functional volume
         cmd = ['mri_vol2surf --regheader ' subjname ' --hemi ' hemi ' --mov ' voldir parcel ...
             ' --surf-fwhm 1 --o ' funcParcelName];
@@ -179,7 +177,7 @@ for did = 1:length(dSpeech)
 
     for hid = 1:length(hemis)
         hemi = hemis{hid};
-        funcParcelName = [outdir parcel '_smooth_' hemi '.nii.gz'];
+        funcParcelName = [outdir hemi(1) parcel '_functional_smoothed.nii.gz'];
         % Transform parcels from the subject's anatomical volume to the subject's functional volume
         cmd = ['mri_vol2surf --regheader ' subjname ' --hemi ' hemi ' --mov ' voldir parcel ...
             ' --surf-fwhm 1 --o ' funcParcelName];
