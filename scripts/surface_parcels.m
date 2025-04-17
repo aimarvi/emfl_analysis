@@ -1,7 +1,7 @@
 % requires first running convert_parcels_final.m !!
 % move all parcels to the surface
 % julian, vwfa, language, ToM, MD parcels
-% Last Edit: amarvi 03/17/2025
+% Last Edit: amarvi 04/17/2025
 % 
 % args: 
 %     subjname (str): subject name
@@ -177,7 +177,7 @@ for did = 1:length(dSpeech)
 
     for hid = 1:length(hemis)
         hemi = hemis{hid};
-        funcParcelName = [outdir hemi(1) parcel '_functional_smoothed.nii.gz'];
+        funcParcelName = [outdir hemi(1) 'speech_functional_smoothed.nii.gz'];
         % Transform parcels from the subject's anatomical volume to the subject's functional volume
         cmd = ['mri_vol2surf --regheader ' subjname ' --hemi ' hemi ' --mov ' voldir parcel ...
             ' --surf-fwhm 1 --o ' funcParcelName];
