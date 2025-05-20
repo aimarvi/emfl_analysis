@@ -1,4 +1,7 @@
-% convert_parcels_all
+% requires first running parcel_transform_final.m
+% 
+% converts parcels from template space to native space
+% 
 % julian, vwfa, language, ToM, physics, MD parcels
 % Last Edit: amarvi 04/17/2025
 % 

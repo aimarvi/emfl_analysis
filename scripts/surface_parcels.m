@@ -1,4 +1,6 @@
-% requires first running convert_parcels_final.m !!
+% requires first running volume_parcels.m
+% surface parcels are a transformed version of the native volume parcels
+%
 % move all parcels to the surface
 % julian, vwfa, language, ToM, MD parcels
 % Last Edit: amarvi 04/17/2025

@@ -1,6 +1,8 @@
 % transform subjects to cvs, mni152, and fsavg space
-% required before getting parcellations for each subject (julian, language,
-% ToM, vwfa, speech, physics, md)
+% required before getting parcellations for each subject (julian, language, ToM, vwfa, speech, physics, md)
+% 
+% after all 3 runs are finished, you can run volume_parcels.m
+% 
 % Created by: @amarvi 
 % Last edit: 03/11/2025
 % 
