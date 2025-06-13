@@ -5,7 +5,7 @@ import gen_utils as guts
 
 def compute_dice(sigs_1, sigs_2, label, df):
 '''
-Helper function to compute Dice coefficients
+Helper function to compute percentage-wise Dice coefficients
 '''
     sidx_1 = np.argsort(sigs_1)[::-1]
     sidx_2 = np.argsort(sigs_2)[::-1]
@@ -22,6 +22,30 @@ Helper function to compute Dice coefficients
         dice = (2 * intersection) / (len(set_1) + len(set_2))
 
         df.loc[len(df)] = {'Subject': subj, 'ROI': roi, 'Experiment': label, 'Percent': perc, 'Dice': dice}
+    return df
+
+def threshold_dice(sigs_1, sigs_2, threshold=0.001, label=None, df=None):
+'''
+Helper function to compute Dice coefficients based on significance thresholds
+'''
+    set_1 = set(np.where(sigs_1 < threshold)[0])
+    set_2 = set(np.where(sigs_2 < threshold)[0])
+
+    if len(set_1) + len(set_2) == 0:
+        dice = np.nan  # Avoid divide-by-zero
+    else:
+        intersection = len(set_1 & set_2)
+        dice = (2 * intersection) / (len(set_1) + len(set_2))
+
+    if df is not None:
+        df.loc[len(df)] = {
+            'Subject': subj,
+            'ROI': roi,
+            'Experiment': label,
+            'Threshold': threshold,
+            'Dice': dice
+        }
+
     return df
 
 subjs = ['kaneff01'] + [f'kaneff{lid:02d}' for lid in range(6,25)]
