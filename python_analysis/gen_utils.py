@@ -2,34 +2,38 @@ import os
 import nibabel as nib
 import numpy as np
 
+ROOT_DIR = '/mindhive/nklab5/projects/efficient_localizer/recons/'
+
 def nifti_from_path(path):
-'''
-wrapper function to easily load in fMRI data (*.nii, *.mgz, etc)
+    '''
+    wrapper function to easily load in fMRI data (*.nii, *.mgz, etc)
 
-args:
-    path (str): path to data file
+    args:
+        path (str): path to data file
 
-returns:
-    (nd.array): data in array format
-'''
+    returns:
+        (nd.array): data in array format
+    '''
+    path = os.path.join(ROOT_DIR, path)
+
     #get data from nifti file, load as numpy array
     nifti = nib.load(path).dataobj
     data = np.array(nifti)
     return data
 
 def load_sigs(subj, exp, contrast, split):
-'''
-load in the significance values for a given contrast
+    '''
+    load in the significance values for a given contrast
 
-args:
-    subj (str): subject name
-    exp (str): localizer name (eg. 'vis', 'aud')
-    contrast (str): functional contrast (eg. 'Fa-O')
-    split (str): which runs did the analysis use? One of ['all', 'even', 'odd']
+    args:
+        subj (str): subject name
+        exp (str): localizer name (eg. 'vis', 'aud')
+        contrast (str): functional contrast (eg. 'Fa-O')
+        split (str): which runs did the analysis use? One of ['all', 'even', 'odd']
 
-returns:
-    (nd.array): data in array format
-'''
+    returns:
+        (nd.array): data in array format
+    '''
     if exp == 'ebavwfa':
         subj = f'{subj}b'
     #load with nibabel to numpy
@@ -37,17 +41,17 @@ returns:
     return nifti_from_path(path)
 
 def load_betas(subj, exp, split):
-'''
-load in all GLM beta values
+    '''
+    load in all GLM beta values
 
-args:
-    subj (str): subject name
-    exp (str): localizer name (eg. 'vis', 'aud')
-    split (str): which runs did the analysis use? One of ['all', 'even', 'odd']
+    args:
+        subj (str): subject name
+        exp (str): localizer name (eg. 'vis', 'aud')
+        split (str): which runs did the analysis use? One of ['all', 'even', 'odd']
 
-returns:
-    (nd.array): data in array format
-'''
+    returns:
+        (nd.array): data in array format
+    '''
     if exp == 'ebavwfa':
         subj = f'{subj}b' # ebavwfa localizer was run during a second localizer
 
@@ -55,18 +59,18 @@ returns:
     return nifti_from_path(path)
 
 def load_parcel(subj, parcellation, roi, hemi):
-'''
-load in anatomical parcel transformed to the subject's native space
+    '''
+    load in anatomical parcel transformed to the subject's native space
 
-args:
-    subj (str): subject name
-    parcellation (str): dir name holding the parcels (eg. 'julian_parcels')
-    roi (str): functional roi for which parcel is defined (eg. 'FFA')
-    hemi (str): hemisphere. one of ['lh', 'rh']
+    args:
+        subj (str): subject name
+        parcellation (str): dir name holding the parcels (eg. 'julian_parcels')
+        roi (str): functional roi for which parcel is defined (eg. 'FFA')
+        hemi (str): hemisphere. one of ['lh', 'rh']
 
-returns:
-    (nd.array): parcel in native space, indicated by non-zero values
-'''
+    returns:
+        (nd.array): parcel in native space, indicated by non-zero values
+    '''
     #because MD has so many parcels, want to get groups
     def md_macroparcels(subj):
         
