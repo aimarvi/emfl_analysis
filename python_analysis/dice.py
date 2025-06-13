@@ -105,5 +105,6 @@ if __name__=='__main__':
             except Exception as e:
                 print(subj, e)
 
-    grouped_df = df1.groupby(['ROI', 'Experiment', 'Threshold'])['Dice'].agg(by=['mean', 'std'])
-    grouped_df
+    grouped_df = df1.groupby(['ROI', 'Experiment', 'Threshold'])['Dice'].agg(['mean', 'std'])
+    df1.to_pickle('/mindhive/nklab5/projects/efficient_localizer/python_analyses/final_data/threshold_df1.pkl')
+    print(grouped_df)
