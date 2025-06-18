@@ -76,7 +76,7 @@ def load_parcel(subj, parcellation, roi, hemi):
         
         md_macro_parcels = {}
     
-        parcels_list = [p for p in os.listdir(f'../data_analysis/masks/vols/{subj}/md_parcels') if 'functional' in p and 'surf' not in p]
+        parcels_list = [p for p in os.listdir(f'{ROOT_DIR}../data_analysis/masks/vols/{subj}/md_parcels') if 'functional' in p and 'surf' not in p]
         frontals = [p for p in parcels_list if 'Frontal' in p]
         parietals = [p for p in parcels_list if 'Parietal' in p]
     
