@@ -18,14 +18,13 @@ function volume_parcels(subjname)
 SUBJECTS_DIR = '../recons/';
 setenv('SUBJECTS_DIR',SUBJECTS_DIR);
 
-srcParcelDir = './parcels/';
+srcParcelDir = './PARCELS/';
 
-dJP = dir([srcParcelDir 'all/*.nii.gz']);
-dLang = dir([srcParcelDir 'EvLab_lang_parcels/langparcel*.nii']);
-dSpeech = dir([srcParcelDir 'speech_parcels/*.nii']);
-dToM = dir([srcParcelDir 'ToM_parcels/*.nii.gz']);
-dPhys = dir([srcParcelDir 'physics/*.nii.gz']);
-dVWFA = dir([srcParcelDir 'lvwfa.nii.gz']);
+dJP = dir([srcParcelDir 'julian/*.nii.gz']);
+dLang = dir([srcParcelDir 'language/.nii.gz']);
+dSpeech = dir([srcParcelDir 'speech/*.nii.gz']);
+dToM = dir([srcParcelDir 'tom/*.nii.gz']);
+dVWFA = dir([srcParcelDir 'vwfa/*.nii.gz']);
 dMD = dir([srcParcelDir 'md/*.nii.gz']);
 
 fprintf('subject: %s\n', subjname);
