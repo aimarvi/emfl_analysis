@@ -1,1 +1,6 @@
+# files related to local setup
+.*DS*
+nohup.out
 misc
+
+PARCELS
