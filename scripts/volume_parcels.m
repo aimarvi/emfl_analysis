@@ -19,7 +19,7 @@ function volume_parcels(subjname)
 SUBJECTS_DIR = '/XXX/recons/';
 setenv('SUBJECTS_DIR',SUBJECTS_DIR);
 
-srcParcelDir = '../PARCELS/';
+srcParcelDir = 'PARCELS/';
 
 dJP = dir([srcParcelDir 'julian/*.nii.gz']);
 dLang = dir([srcParcelDir 'language/.nii.gz']);
@@ -36,7 +36,7 @@ diary([logDir diaryname]);
 
 %% julian parcels
 outdir = [SUBJECTS_DIR '../data_analysis/masks/vols/' ...
-    subjname '/julian_parcels/']; mkdir(outdir);
+    subjname '/julian/']; mkdir(outdir);
 tform_dir = [SUBJECTS_DIR '../data_analysis/subj2cvs_tform/' ...
     subjname '/final_CVSmorph_tocvs_avg35.m3z'];
 meanfunc_dir = [SUBJECTS_DIR '../vols_vis/' subjname ...
@@ -67,7 +67,7 @@ end
 
 %% vwfa parcels
 outdir = [SUBJECTS_DIR '../data_analysis/masks/vols/' ...
-    subjname '/vwfa_parcels/']; mkdir(outdir);
+    subjname '/vwfa/']; mkdir(outdir);
 tform_dir = [SUBJECTS_DIR '../data_analysis/subj2cvsmni152_tform/' ...
     subjname '/final_CVSmorph_tocvs_avg35_inMNI152.m3z'];
 meanfunc_dir = [SUBJECTS_DIR '../vols_aud/' subjname ...
@@ -98,7 +98,7 @@ end
 
 %% MD parcels
 outdir = [SUBJECTS_DIR '../data_analysis/masks/vols/' ...
-    subjname '/md_parcels/']; mkdir(outdir);
+    subjname '/md/']; mkdir(outdir);
 
 for did = 1:length(dMD)
     parcel = dMD(did).name;
@@ -125,7 +125,7 @@ end
 
 %% language parcels
 outdir = [SUBJECTS_DIR '/../data_analysis/masks/vols/' ...
-    subjname '/lang_parcels/']; mkdir(outdir);
+    subjname '/language/']; mkdir(outdir);
 tform_dir = [SUBJECTS_DIR '/../data_analysis/fsavg2subj_tform/' ...
     subjname '/mni152_to_func.lta'];
 meanfunc_dir = [SUBJECTS_DIR '/../vols_aud/' subjname '/bold/aud.sm3.all/meanfunc.nii.gz'];
@@ -179,28 +179,29 @@ for did = 1:length(dToM)
     unix(cmd);
 end
 
-%% physics parcels
-outdir = [SUBJECTS_DIR '/../data_analysis/masks/vols/' ...
-    subjname filesep '/physics/']; mkdir(outdir);
-meanfunc_dir = [SUBJECTS_DIR '/../vols_vis/' ...
-    subjname filesep 'bold/vis.sm3.all/meanfunc.nii.gz'];
-tform_dir = [SUBJECTS_DIR '/../data_analysis/fsavg2subj_tform/' ...
-    subjname '/fsavg2func.lta'];
-
-% use the transformation to bring the physics parcels to subject functional space
-% convert the fsavg space parcel to subject space
-for did = 1:length(dPhys)
-    parcel = dPhys(did).name;
-    pnames = split(parcel, '.');
-
-    funcParcelName = [outdir pnames(1) '.' pnames(2) '.func.nii.gz'];
-
-    cmd = ['mri_vol2vol --mov ' srcParcelDir 'physics/' parcel...
-        ' --targ ' meanfunc_dir ...
-        ' --reg ' tform_dir ...
-        ' --o ' outdir funcParcelName];
-    unix(cmd);
-end
+%% physics has not been configured yet
+% %% physics parcels
+% outdir = [SUBJECTS_DIR '/../data_analysis/masks/vols/' ...
+%     subjname filesep '/physics/']; mkdir(outdir);
+% meanfunc_dir = [SUBJECTS_DIR '/../vols_vis/' ...
+%     subjname filesep 'bold/vis.sm3.all/meanfunc.nii.gz'];
+% tform_dir = [SUBJECTS_DIR '/../data_analysis/fsavg2subj_tform/' ...
+%     subjname '/fsavg2func.lta'];
+% 
+% % use the transformation to bring the physics parcels to subject functional space
+% % convert the fsavg space parcel to subject space
+% for did = 1:length(dPhys)
+%     parcel = dPhys(did).name;
+%     pnames = split(parcel, '.');
+% 
+%     funcParcelName = [outdir pnames(1) '.' pnames(2) '.func.nii.gz'];
+% 
+%     cmd = ['mri_vol2vol --mov ' srcParcelDir 'physics/' parcel...
+%         ' --targ ' meanfunc_dir ...
+%         ' --reg ' tform_dir ...
+%         ' --o ' outdir funcParcelName];
+%     unix(cmd);
+% end
 
 diary off
 
