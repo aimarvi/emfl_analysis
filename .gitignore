@@ -3,4 +3,6 @@
 nohup.out
 misc
 
+# in case you unzip all the parcels
 PARCELS
+scripts/PARCELS
