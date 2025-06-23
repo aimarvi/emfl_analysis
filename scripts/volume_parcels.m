@@ -15,10 +15,11 @@
 %%% this is all you need to change (hopefully) %%%
 function volume_parcels(subjname)
 
-SUBJECTS_DIR = '../recons/';
+% path to your project directory (specifically the ./recons folder)
+SUBJECTS_DIR = '/XXX/recons/';
 setenv('SUBJECTS_DIR',SUBJECTS_DIR);
 
-srcParcelDir = './PARCELS/';
+srcParcelDir = '../PARCELS/';
 
 dJP = dir([srcParcelDir 'julian/*.nii.gz']);
 dLang = dir([srcParcelDir 'language/.nii.gz']);
@@ -44,13 +45,14 @@ meanfunc_dir = [SUBJECTS_DIR '../vols_vis/' subjname ...
 % Transform parcel from CVS volume to subject's anatomial volume
 for did = 1:length(dJP)
     parcel = dJP(did).name;
-    pname = strtok(parcel, '.');
-    anatParcelName = [outdir pname '_anatomical.nii.gz'];
-    funcParcelName = [outdir pname '_functional.nii.gz'];
+    pnames = split(parcel, '.');
+
+    anatParcelName = [outdir pnames(1) '.' pnames(2) '.anat.nii.gz'];
+    funcParcelName = [outdir pnames(1) '.' pnames(2) '.func.nii.gz'];
 
     cmd = ['mri_vol2vol --noDefM3zPath'...
         ' --mov ' SUBJECTS_DIR subjname '/mri/orig.mgz'...
-        ' --targ ' srcParcelDir 'all/' parcel ...
+        ' --targ ' srcParcelDir 'julian/' parcel ...
         ' --m3z ' tform_dir ...
         ' --o ' anatParcelName ...
         ' --nearest' ...
@@ -73,15 +75,15 @@ meanfunc_dir = [SUBJECTS_DIR '../vols_aud/' subjname ...
 
 for did = 1:length(dVWFA)
     parcel = dVWFA(did).name;
-    pname = strtok(parcel, '.');
+    pnames = split(parcel, '.');
 
-    anatParcelName = [outdir pname '_anatomical.nii.gz'];
-    funcParcelName = [outdir pname '_functional.nii.gz'];
+    anatParcelName = [outdir pnames(1) '.' pnames(2) '.anat.nii.gz'];
+    funcParcelName = [outdir pnames(1) '.' pnames(2) '.func.nii.gz'];
 
     % Transform parcel from CVS-MNI152 volume to subject's anatomial volume
     cmd = ['mri_vol2vol --noDefM3zPath'...
         ' --mov ' SUBJECTS_DIR subjname '/mri/orig.mgz'...
-        ' --targ ' srcParcelDir parcel ...
+        ' --targ ' srcParcelDir 'vwfa/' parcel ...
         ' --m3z ' tform_dir ...
         ' --o ' anatParcelName ...
         ' --nearest' ...
@@ -100,9 +102,10 @@ outdir = [SUBJECTS_DIR '../data_analysis/masks/vols/' ...
 
 for did = 1:length(dMD)
     parcel = dMD(did).name;
-    pname = strtok(parcel, '.');
-    anatParcelName = [outdir pname '_anatomical.nii.gz'];
-    funcParcelName = [outdir pname '_functional.nii.gz'];
+    pnames = split(parcel, '.');
+
+    anatParcelName = [outdir pnames(1) '.' pnames(2) '.anat.nii.gz'];
+    funcParcelName = [outdir pnames(1) '.' pnames(2) '.func.nii.gz'];
 
     % Transform parcel from CVS-MNI152 volume to subject's anatomial volume
     cmd = ['mri_vol2vol --noDefM3zPath'...
@@ -130,43 +133,55 @@ meanfunc_dir = [SUBJECTS_DIR '/../vols_aud/' subjname '/bold/aud.sm3.all/meanfun
 % convert the fsavg space parcel to subject space
 for did = 1:length(dLang)
     parcel = dLang(did).name;
-    cmd = ['mri_vol2vol --mov ' srcParcelDir 'EvLab_lang_parcels/' parcel ...
+    pnames = split(parcel, '.');
+
+    funcParcelName = [outdir pnames(1) '.' pnames(2) '.func.nii.gz'];
+
+    cmd = ['mri_vol2vol --mov ' srcParcelDir 'language/' parcel ...
         ' --targ ' meanfunc_dir ...
         ' --reg ' tform_dir ...
-        ' --o ' outdir parcel];
+        ' --o ' outdir funcParcelName];
     unix(cmd);
 end
 
 % bilateral speech parcels
 outdir = [SUBJECTS_DIR '../data_analysis/masks/vols/' ...
-    subjname '/speech_parcels/']; mkdir(outdir);
+    subjname '/speech/']; mkdir(outdir);
 for did = 1:length(dSpeech)
     parcel = dSpeech(did).name;
-    cmd = ['mri_vol2vol --mov ' srcParcelDir 'speech_parcels/' parcel ...
+    pnames = split(parcel, '.');
+
+    funcParcelName = [outdir pnames(1) '.' pnames(2) '.func.nii.gz'];
+
+    cmd = ['mri_vol2vol --mov ' srcParcelDir 'speech/' parcel ...
         ' --targ ' meanfunc_dir ...
         ' --reg ' tform_dir ...
-        ' --o ' outdir parcel];
+        ' --o ' outdir funcParcelName];
     unix(cmd);
 end
 
 %% ToM parcels
 outdir = [SUBJECTS_DIR '/../data_analysis/masks/vols/' ...
-    subjname '/ToM_parcels/']; mkdir(outdir);
+    subjname '/tom/']; mkdir(outdir);
 
 % use the transformation to bring the ToM parcels to subject functional space
 % convert the fsavg space parcel to subject space
 for did = 1:length(dToM)
     parcel = dToM(did).name;
-    cmd = ['mri_vol2vol --mov ' srcParcelDir 'ToM_parcels/' parcel ...
+    pnames = split(parcel, '.');
+
+    funcParcelName = [outdir pnames(1) '.' pnames(2) '.func.nii.gz'];
+
+    cmd = ['mri_vol2vol --mov ' srcParcelDir 'tom/' parcel ...
         ' --targ ' meanfunc_dir ...
         ' --reg ' tform_dir ...
-        ' --o ' outdir parcel];
+        ' --o ' outdir funcParcelName];
     unix(cmd);
 end
 
 %% physics parcels
 outdir = [SUBJECTS_DIR '/../data_analysis/masks/vols/' ...
-    subjname filesep '/physics_parcels/']; mkdir(outdir);
+    subjname filesep '/physics/']; mkdir(outdir);
 meanfunc_dir = [SUBJECTS_DIR '/../vols_vis/' ...
     subjname filesep 'bold/vis.sm3.all/meanfunc.nii.gz'];
 tform_dir = [SUBJECTS_DIR '/../data_analysis/fsavg2subj_tform/' ...
@@ -176,10 +191,14 @@ tform_dir = [SUBJECTS_DIR '/../data_analysis/fsavg2subj_tform/' ...
 % convert the fsavg space parcel to subject space
 for did = 1:length(dPhys)
     parcel = dPhys(did).name;
+    pnames = split(parcel, '.');
+
+    funcParcelName = [outdir pnames(1) '.' pnames(2) '.func.nii.gz'];
+
     cmd = ['mri_vol2vol --mov ' srcParcelDir 'physics/' parcel...
         ' --targ ' meanfunc_dir ...
         ' --reg ' tform_dir ...
-        ' --o ' outdir parcel];
+        ' --o ' outdir funcParcelName];
     unix(cmd);
 end
 
