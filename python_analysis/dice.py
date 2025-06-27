@@ -49,18 +49,24 @@ def threshold_dice(sigs_1, sigs_2, threshold=3, label=None, df=None):
     return df
 
 if __name__=='__main__':
-    subjs = ['kaneff01'] + [f'kaneff{lid:02d}' for lid in range(6,25)]
-    localizers = ['vis', 'foss']
-    localizers = ['audHalf', 'eploc']
+    # subjs = ['kaneff01'] + [f'kaneff{lid:02d}' for lid in range(6,25)]
+    subjs = [f'kaneff{lid:02d}' for lid in [1, 13, 14, 17, 18]]
+
+    localizers = ['vis', 'bot_in_effloc5_space']
     corrected = False
+    method = 'percent'
     
-    contrasts = ['Fa-O', 'Fa-O', 'Fa-O', 'S-O', 'S-O', 'S-O', 'O-Scr']
-    rois = ['FFA', 'OFA', 'STS', 'PPA', 'OPA', 'RSC', 'LOC']
+    contrasts = ['B-O']
+    rois = ['EBA']
     hemis = ['rh']
     ps = ['julian_parcels'] * len(contrasts)
     
-#     cols = ['Subject', 'ROI', 'Experiment', 'Percent', 'Dice']
-    cols = ['Subject', 'ROI', 'Experiment', 'Threshold', 'Dice']
+    if method == 'percent':
+        cols = ['Subject', 'ROI', 'Experiment', 'Percent', 'Dice']
+    elif method == 'threshold':
+        cols = ['Subject', 'ROI', 'Experiment', 'Threshold', 'Dice']
+    else:
+        raise ValueError(f'{method} not implemented')
     df1 = pd.DataFrame(columns=cols)
     
     for ridx in range(len(rois)):
@@ -74,17 +80,24 @@ if __name__=='__main__':
                     # Load and apply parcel
                     parcel = guts.load_parcel(subj, parcellation, roi, hemi)
                     pidx = np.where(parcel != 0)
-        
-        #             percentages = np.arange(0.1, 1.1, 0.1)
-                    threshold=2
+
+                    if method == 'percent':
+                        percentages = np.arange(0.1, 1.1, 0.1)
+                    elif method =='threshold':
+                        threshold=2
+                    else:
+                        raise ValueError(f'{method} not implemented')
         
                     # ----- Within-localizer Dice -----
                     for exp, label in zip(localizers, ['loc_1', 'loc_2']):
                         sigs_even = guts.load_sigs(subj, exp, contrast, 'even')[pidx].squeeze()
                         sigs_odd = guts.load_sigs(subj, exp, contrast, 'odd')[pidx].squeeze()
+
+                        if method == 'percent':
+                            df1 = compute_dice(sigs_even, sigs_odd, label, df1)
+                        else:
+                            df1 = threshold_dice(sigs_even, sigs_odd, threshold, label, df1)
         
-        #                 df1 = compute_dice(sigs_even, sigs_odd, label, df1)
-                        df1 = threshold_dice(sigs_even, sigs_odd, threshold, label, df1)
         
                     # ----- Between-localizer Dice -----
                     if corrected:
@@ -92,20 +105,28 @@ if __name__=='__main__':
                             for run_2 in ['even', 'odd']:
                                 sigs_loc_1 = guts.load_sigs(subj, localizers[0], contrast, run_1)[pidx].squeeze()
                                 sigs_loc_2 = guts.load_sigs(subj, localizers[1], contrast, run_2)[pidx].squeeze()
-        
-        #                         df1 = compute_dice(sigs_loc_1, sigs_loc_2, 'between', df1)
-                                df1 = threshold_dice(sigs_loc_1, sigs_loc_2, threshold, 'between', df1)
+
+                                if method == 'percent':
+                                    df1 = compute_dice(sigs_loc_1, sigs_loc_2, 'between', df1)
+                                else:
+                                    df1 = threshold_dice(sigs_loc_1, sigs_loc_2, threshold, 'between', df1)
         
                     else:
                         sigs_loc_1 = guts.load_sigs(subj, localizers[0], contrast, 'all')[pidx].squeeze()
                         sigs_loc_2 = guts.load_sigs(subj, localizers[1], contrast, 'all')[pidx].squeeze()
-        
-        #                 df1 = compute_dice(sigs_loc_1, sigs_loc_2, 'between', df1)
-                        df1 = threshold_dice(sigs_loc_1, sigs_loc_2, threshold, 'between', df1)
+
+                        if method == 'percent':
+                            df1 = compute_dice(sigs_loc_1, sigs_loc_2, 'between', df1)
+                        else:
+                            df1 = threshold_dice(sigs_loc_1, sigs_loc_2, threshold, 'between', df1)
         
                 except Exception as e:
                     print(subj, e)
 
-        # grouped_df = df1.groupby(['ROI', 'Experiment', 'Threshold'])['Dice'].agg(['mean', 'std'])
-    df1.to_pickle('/mindhive/nklab5/projects/efficient_localizer/python_analyses/final_data/threshold_df1.pkl')
+        if method == 'percent':
+            grouped_df = df1.groupby(['ROI', 'Experiment', 'Percent'])['Dice'].agg(['mean', 'std'])
+        else:
+            grouped_df = df1.groupby(['ROI', 'Experiment', 'Threshold'])['Dice'].agg(['mean', 'std'])
+        print(grouped_df)
+    # df1.to_pickle('/mindhive/nklab5/projects/efficient_localizer/python_analyses/final_data/threshold_df1.pkl')
     print('success! : ', localizers[0], localizers[1])
