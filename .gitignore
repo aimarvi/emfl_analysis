@@ -13,3 +13,6 @@ scripts/PARCELS
 *.jpeg
 *.png
 *.gif
+
+# python compiler
+__pycache__/
