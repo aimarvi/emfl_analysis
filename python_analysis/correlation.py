@@ -1,55 +1,85 @@
-import os
-import numpy as np
-import seaborn as sns
 import pandas as pd
-import matplotlib.pyplot as plt
-import nibabel as nib
 
-from scipy import stats
-from scipy.stats import norm
-from tqdm import tqdm
+import corr_utils as corr
 
-import corr_utils as cuts
 
-'''
-calculates correlation (pearson's r) of voxel activity between two localizers
-@aimarvi
-'''
+def main():
+    """
+    Collect across-localizer voxelwise correlation summaries.
 
-subjs = ['kaneff01'] + [f'kaneff{sid:02d}' for sid in range(6,25)]
-alt_subjs = [f'kaneff{sid:02d}' for sid in range(9,25)]
+    Returns:
+        pd.DataFrame:
+            results_df (pd.DataFrame):
+                One row per subject, roi, and hemisphere.
+    """
 
-hemis = ['lh', 'rh']
-rois = ['FFA', 'OFA', 'STS', 'PPA', 'OPA', 'RSC', 'LOC', 'EBA', 'vwfa']
-loc_1 = 'vis';
-contrast_1s = ['Fa-O', 'Fa-O', 'Fa-O', 'S-O', 'S-O', 'S-O', 'O-Scr', 'B-O', 'W-O']; contrast_2s = ['Fa-O', 'Fa-O', 'Fa-O', 'S-O', 'S-O', 'S-O', 'O-Scr', 'B-O', 'W-O', 'Fa-O'];
+    subjects_main = ["kaneff01"] + [f"kaneff{subject_id:02d}" for subject_id in range(6, 25)]
+    subjects_ebavwfa = [f"kaneff{subject_id:02d}" for subject_id in range(9, 25)]
 
-cols = ['subject', 'contrast', 'loc_1', 'loc_2', 'across', 'across_uncorrected', 'r_trans']
-df = pd.DataFrame(columns=cols)
+    hemispheres = ["lh", "rh"]
+    rois = ["FFA", "OFA", "STS", "PPA", "OPA", "RSC", "LOC", "EBA", "vwfa"]
+    contrast_names_loc_1 = ["Fa-O", "Fa-O", "Fa-O", "S-O", "S-O", "S-O", "O-Scr", "B-O", "W-O"]
+    contrast_names_loc_2 = ["Fa-O", "Fa-O", "Fa-O", "S-O", "S-O", "S-O", "O-Scr", "B-O", "Fa-O"]
 
-for i in range(len(rois)):
-    for hemi in hemis:
-        roi = rois[i]; contrast_1 = contrast_1s[i]; contrast_2 = contrast_2s[i]
-        parcellation = 'julian_parcels'
-        loc_2 = 'foss'
-        todo = subjs
-        if roi == 'EBA':
-            loc_2 = 'ebavwfa'
-            todo = alt_subjs
-        elif roi =='vwfa':
-            loc_2 = 'ebavwfa'; hemi = 'lh'; parcellation = 'vwfa_parcels'
-            todo = alt_subjs
-        for subj in todo:
-            try:
-                result = cuts.get_correlations(subj, roi, hemi, parcellation, loc_1, contrast_1, within=False, loc_2=loc_2, contrast_2=contrast_2, full=True)
-                res2 = cuts.get_correlations(subj, roi, hemi, parcellation, loc_1, contrast_1, within=False, loc_2=loc_2, contrast_2=contrast_2, full=False)
-                df.loc[len(df)] = {'subject': subj,  
-                                   'contrast': roi,
-                                   'loc_1': result['loc_1'],  
-                                   'loc_2': result['loc_2'],
-                                   'across': result['across'],
-                                   'across_uncorrected': res2['r'],
-                                  'r_trans': result['r_trans']}
+    rows = []
 
-            except Exception as e:
-                print(subj, e)
+    for roi_index, roi_name in enumerate(rois):
+        for hemisphere_name in hemispheres:
+            contrast_name_loc_1 = contrast_names_loc_1[roi_index]
+            contrast_name_loc_2 = contrast_names_loc_2[roi_index]
+            parcellation_name = "julian"
+            localizer_name_loc_2 = "foss"
+            subjects_current = subjects_main
+            hemisphere_current = hemisphere_name
+
+            if roi_name == "EBA":
+                localizer_name_loc_2 = "ebavwfa"
+                subjects_current = subjects_ebavwfa
+            elif roi_name == "vwfa":
+                localizer_name_loc_2 = "ebavwfa"
+                parcellation_name = "vwfa"
+                hemisphere_current = "lh"
+                subjects_current = subjects_ebavwfa
+
+            for subject_name in subjects_current:
+                result_corrected = corr.get_correlations(
+                    subj=subject_name,
+                    roi=roi_name,
+                    hemi=hemisphere_current,
+                    parcellation=parcellation_name,
+                    loc_1="vis",
+                    contrast_1=contrast_name_loc_1,
+                    within=False,
+                    loc_2=localizer_name_loc_2,
+                    contrast_2=contrast_name_loc_2,
+                    full=True,
+                )
+                result_uncorrected = corr.get_correlations(
+                    subj=subject_name,
+                    roi=roi_name,
+                    hemi=hemisphere_current,
+                    parcellation=parcellation_name,
+                    loc_1="vis",
+                    contrast_1=contrast_name_loc_1,
+                    within=False,
+                    loc_2=localizer_name_loc_2,
+                    contrast_2=contrast_name_loc_2,
+                    full=False,
+                )
+                rows.append(
+                    {
+                        "subject": subject_name,
+                        "contrast": roi_name,
+                        "loc_1": result_corrected["loc_1"],
+                        "loc_2": result_corrected["loc_2"],
+                        "across": result_corrected["across"],
+                        "across_uncorrected": result_uncorrected["r"],
+                        "r_trans": result_corrected["r_trans"],
+                    }
+                )
+
+    return pd.DataFrame(rows)
+
+
+if __name__ == "__main__":
+    dataframe_results = main()

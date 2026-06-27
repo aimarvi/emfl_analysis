@@ -25,6 +25,17 @@ paras_aud/          auditory paradigm files
 paras_audHalf/      half-block auditory paradigm files
 ```
 
+## Parcel Template Spaces
+
+Parcels come from different template spaces before they are moved into each subject's native functional volume:
+
+- `julian`: CVS average space
+- `vwfa`: MNI152 space
+- `md`: MNI152 space
+- `language`: MNI152 space
+- `speech`: MNI152 space
+- `tom`: MNI152 space
+
 ## Core Workflow
 
 The main analysis path is:
@@ -51,10 +62,10 @@ The main code-to-paper mapping is:
   - `scripts/volume_parcels.m`
   - `scripts/surface_parcels.m`
 - Surface activation figures:
-  - `matlab_analysis/surface.m`
-  - `matlab_analysis/plot.m`
+  - `matlab_analysis/plot_surface_maps.m`
+  - `matlab_analysis/get_surface_maps.m`
 - Behavioral summary:
-  - `matlab_analysis/behavioral.m`
+  - `matlab_analysis/plot_behavioral_data.m`
 - EMFL fROI response profiles:
   - `python_analysis/effect_size.py`
 - Cross-localizer ANOVA dataset and models:
@@ -106,14 +117,14 @@ Recommended structure:
 ```text
 matlab_analysis/
   surface_viz/
-    surface.m
-    plot.m
+    plot_surface_maps.m
+    get_surface_maps.m
     read_freesurfer_brain.m
     plot_mesh_brain.m
     paint_mesh.m
 
   behavioral/
-    behavioral.m
+    plot_behavioral_data.m
 ```
 
 ### `python_analysis/`
@@ -140,7 +151,7 @@ python_analysis/
       growing_window.py
 ```
 
-## Current Assumptions
+## Notes
 
 This repository assumes:
 

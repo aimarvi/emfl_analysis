@@ -1,68 +1,72 @@
 import numpy as np
 import pandas as pd
 
-import gen_utils as guts
-
-'''
-count the number of subjects (out of 20) who show at least N number of significant voxels
-'''
+import gen_utils as utils
 
 
-subjs = ['kaneff01'] + [f'kaneff{n:02d}' for n in range(6,25)]
+def main():
+    """
+    Count subjects with at least a threshold number of significant voxels.
 
-localizer = 'audHalf'
-parcellation = 'ToM_parcels'
-runs_set = ['odd', 'all']
-thresholds = [3, 10]
+    Returns:
+        pd.DataFrame:
+            results_df (pd.DataFrame):
+                Summary dataframe across thresholds and run sets.
+    """
 
-rois = ['RTPJ']
-contrasts = ['FB-FP']
-hemis = ['rh']
+    subjects = ["kaneff01"] + [f"kaneff{subject_id:02d}" for subject_id in range(6, 25)]
+    run_sets = ["odd", "all"]
+    thresholds = [3, 10]
+    roi_names = ["RTPJ"]
+    contrast_names = ["FB-FP"]
+    hemisphere_names = ["rh"]
 
-cols = ['experiment', 'roi', 'hemi', 'threshold', 'runs', 'count', 'num-sigs', 'psize', 'category']
-sum_df = pd.DataFrame(columns=cols)
+    rows = []
 
-for thresh in thresholds:
-    for runs in runs_set:
-        for hemi in hemis:
-            for rid in range(len(rois)):
-                roi = rois[rid]
-                contrast = contrasts[rid]
+    for threshold_count in thresholds:
+        for run_label in run_sets:
+            for hemisphere_name in hemisphere_names:
+                for roi_index, roi_name in enumerate(roi_names):
+                    contrast_name = contrast_names[roi_index]
+                    num_subjects_below_threshold = 0
+                    num_sig_voxels = []
+                    num_parcel_voxels = []
 
-                all_count = 0
-                avg_sig_voxels = []
-                avg_parcel_voxels = []
-                for subj in subjs:
-                    try:
-                        # load in parcel
-                        parcel = guts.load_parcel(subj, parcellation, roi, hemi)
-                        pidx = np.where(parcel != 0)
+                    for subject_name in subjects:
+                        parcel_mask = utils.load_parcel(
+                            subj=subject_name,
+                            parcellation="tom",
+                            roi=roi_name,
+                            hemi=hemisphere_name,
+                        )
+                        parcel_index = np.where(parcel_mask != 0)
 
-                        # load in p-values using specified runs
-                        sigs = guts.load_sigs(subj, localizer, contrast, runs)
-                        sigs = sigs[pidx].squeeze()
+                        sig_values = utils.load_sigs(subject_name, "audHalf", contrast_name, run_label)
+                        sig_values = sig_values[parcel_index].squeeze()
 
-                        # how many voxels reach at least p<0.001
-                        count = np.sum(sigs>3)
-                        if count<thresh:
-                            all_count += 1
+                        count_sig_voxels = np.sum(sig_values > 3)
+                        if count_sig_voxels < threshold_count:
+                            num_subjects_below_threshold += 1
 
-                        # average size of subj-specific parcel
-                        p_size = np.sum(parcel != 0)
-                        avg_sig_voxels.append(count)
-                        avg_parcel_voxels.append(p_size)
+                        num_sig_voxels.append(count_sig_voxels)
+                        num_parcel_voxels.append(np.sum(parcel_mask != 0))
 
-                    except Exception as e:
-                        print(subj, e)
+                    rows.append(
+                        {
+                            "experiment": "audHalf",
+                            "roi": roi_name,
+                            "hemi": hemisphere_name,
+                            "threshold": threshold_count,
+                            "runs": run_label,
+                            "count": len(subjects) - num_subjects_below_threshold,
+                            "num-sigs": np.mean(np.array(num_sig_voxels)),
+                            "psize": np.mean(np.array(num_parcel_voxels)),
+                            "category": "efficient",
+                        }
+                    )
 
-                sum_df.loc[len(sum_df)] = {
-                    'experiment': localizer,
-                    'roi': roi,
-                    'hemi': hemi,
-                    'threshold': thresh,
-                    'runs': runs,
-                    'count': len(subjs) - all_count,
-                    'num-sigs': np.mean(np.array(avg_sig_voxels)),
-                    'psize': np.mean(np.array(avg_parcel_voxels)),
-                    'category': 'efficient'
-                }
+    return pd.DataFrame(rows)
+
+
+if __name__ == "__main__":
+    dataframe_results = main()

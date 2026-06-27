@@ -1,135 +1,308 @@
-import os
+from pathlib import Path
+
 import nibabel as nib
 import numpy as np
 
-ROOT_DIR = '/mindhive/nklab5/projects/efficient_localizer/recons/'
+from emfl_paths import get_python_analysis_paths
 
-def nifti_from_path(path):
-    '''
-    wrapper function to easily load in fMRI data (*.nii, *.mgz, etc)
 
-    args:
-        path (str): path to data file
+PARCELLATION_DIR_NAMES = {
+    "julian": "julian",
+    "julian_parcels": "julian",
+    "language": "language",
+    "lang_parcels": "language",
+    "speech": "speech",
+    "speech_parcels_v2": "speech",
+    "tom": "tom",
+    "ToM_parcels": "tom",
+    "vwfa": "vwfa",
+    "vwfa_parcels": "vwfa",
+    "md": "md",
+    "md_parcels": "md",
+}
 
-    returns:
-        (nd.array): data in array format
-    '''
-    path = os.path.join(ROOT_DIR, path)
 
-    #get data from nifti file, load as numpy array
-    nifti = nib.load(path).dataobj
-    data = np.array(nifti)
-    return data
+def nifti_from_path(filepath_data):
+    """
+    Load a nifti-like file and return its data as a numpy array.
+
+    Args:
+        filepath_data (str | Path):
+            Path to a nifti, mgz, or similar image file.
+
+    Returns:
+        np.ndarray:
+            data_array (np.ndarray):
+                Image data loaded into memory.
+    """
+
+    return np.array(nib.load(str(filepath_data)).dataobj)
+
 
 def load_sigs(subj, exp, contrast, split):
-    '''
-    load in the significance values for a given contrast
+    """
+    Load significance values for one contrast.
 
-    args:
-        subj (str): subject name
-        exp (str): localizer name (eg. 'vis', 'aud')
-        contrast (str): functional contrast (eg. 'Fa-O')
-        split (str): which runs did the analysis use? One of ['all', 'even', 'odd']
+    Args:
+        subj (str):
+            Subject identifier.
+        exp (str):
+            Localizer name.
+        contrast (str):
+            Contrast name.
+        split (str):
+            Run split label such as ``all``, ``even``, or ``odd``.
 
-    returns:
-        (nd.array): data in array format
-    '''
-    if exp == 'ebavwfa':
-        subj = f'{subj}b'
-    #load with nibabel to numpy
-    path = f'../vols_{exp}/{subj}/bold/{exp}.sm3.{split}/{contrast}/sig.nii.gz'
-    return nifti_from_path(path)
+    Returns:
+        np.ndarray:
+            sig_values (np.ndarray):
+                Voxelwise significance values.
+    """
+
+    paths = get_python_analysis_paths()
+    subj_name = f"{subj}b" if exp == "ebavwfa" else subj
+    filepath_sig = (
+        paths["dir_project"]
+        / f"vols_{exp}"
+        / subj_name
+        / "bold"
+        / f"{exp}.sm3.{split}"
+        / contrast
+        / "sig.nii.gz"
+    )
+    return nifti_from_path(filepath_sig)
+
 
 def load_betas(subj, exp, split):
-    '''
-    load in all GLM beta values
+    """
+    Load all beta values for one localizer split.
 
-    args:
-        subj (str): subject name
-        exp (str): localizer name (eg. 'vis', 'aud')
-        split (str): which runs did the analysis use? One of ['all', 'even', 'odd']
+    Args:
+        subj (str):
+            Subject identifier.
+        exp (str):
+            Localizer name.
+        split (str):
+            Run split label such as ``all``, ``even``, or ``odd``.
 
-    returns:
-        (nd.array): data in array format
-    '''
-    if exp == 'ebavwfa':
-        subj = f'{subj}b' # ebavwfa localizer was run during a second localizer
+    Returns:
+        np.ndarray:
+            beta_values (np.ndarray):
+                Voxelwise beta values with condition dimension last.
+    """
 
-    path = f'../vols_{exp}/{subj}/bold/{exp}.sm3.{split}/beta.nii.gz'
-    return nifti_from_path(path)
+    paths = get_python_analysis_paths()
+    subj_name = f"{subj}b" if exp == "ebavwfa" else subj
+    filepath_beta = (
+        paths["dir_project"]
+        / f"vols_{exp}"
+        / subj_name
+        / "bold"
+        / f"{exp}.sm3.{split}"
+        / "beta.nii.gz"
+    )
+    return nifti_from_path(filepath_beta)
+
 
 def load_parcel(subj, parcellation, roi, hemi):
-    '''
-    load in anatomical parcel transformed to the subject's native space
+    """
+    Load one subject-space parcel mask.
 
-    args:
-        subj (str): subject name
-        parcellation (str): dir name holding the parcels (eg. 'julian_parcels')
-        roi (str): functional roi for which parcel is defined (eg. 'FFA')
-        hemi (str): hemisphere. one of ['lh', 'rh']
+    Args:
+        subj (str):
+            Subject identifier.
+        parcellation (str):
+            Parcel family name.
+        roi (str):
+            Region-of-interest name.
+        hemi (str):
+            Hemisphere label, usually ``lh`` or ``rh``.
 
-    returns:
-        (nd.array): parcel in native space, indicated by non-zero values
-    '''
-    #because MD has so many parcels, want to get groups
-    def md_macroparcels(subj):
-        
-        md_macro_parcels = {}
-    
-        parcels_list = [p for p in os.listdir(f'{ROOT_DIR}../data_analysis/masks/vols/{subj}/md_parcels') if 'functional' in p and 'surf' not in p]
-        frontals = [p for p in parcels_list if 'Frontal' in p]
-        parietals = [p for p in parcels_list if 'Parietal' in p]
-    
-        r_frontals = [p for p in frontals if p[0] == 'r']
-        l_frontals = [p for p in frontals if p[0] == 'l']
-        r_parietals = [p for p in parietals if p[0] == 'r']
-        l_parietals = [p for p in parietals if p[0] == 'l']
-    
-        for i in range(len([r_frontals, l_frontals, r_parietals, l_parietals])):
-    
-            #construct macro-parcels from sub-parcels
-            group = [r_frontals, l_frontals, r_parietals, l_parietals][i]
-            group_parcel = np.zeros((104,104,52))
-            for parcel in group:
-                parcel_path = f'../data_analysis/masks/vols/{subj}/md_parcels/{parcel}'
-                sub_parcel = nifti_from_path(parcel_path)
-                group_parcel = group_parcel + sub_parcel
-    
-            if i == 0:
-                md_macro_parcels['r_frontal'] = group_parcel
-            elif i == 1:
-                md_macro_parcels['l_frontal'] = group_parcel
-            elif i == 2:
-                md_macro_parcels['r_parietal'] = group_parcel
-            elif i == 3:
-                md_macro_parcels['l_parietal'] = group_parcel
-                
-        return md_macro_parcels
-    
-    #get correct file name format
-    if parcellation == 'md_parcels':
-        
-        parcels = md_macroparcels(subj)
-        roi_str = f'{hemi[0]}_{roi}'
-        return parcels[roi_str]
+    Returns:
+        np.ndarray:
+            parcel_mask (np.ndarray):
+                Parcel mask in subject native functional space.
+    """
 
-    elif parcellation == 'fs_dkt':
-        path = f'../recons/{subj}/mri/FSatlas_functional.nii.gz'
-        return nifti_from_path(path)
-        
+    if parcellation == "fs_dkt":
+        paths = get_python_analysis_paths()
+        filepath_atlas = paths["dir_recons"] / subj / "mri" / "FSatlas_functional.nii.gz"
+        return nifti_from_path(filepath_atlas)
+
+    if parcellation in {"md", "md_parcels"}:
+        return load_md_macroparcel(subj=subj, roi=roi, hemi=hemi)
+
+    dir_parcellation = resolve_parcellation_dir(subj=subj, parcellation=parcellation)
+    filepaths_candidate = get_parcel_candidates(
+        dir_parcellation=dir_parcellation,
+        parcellation=parcellation,
+        roi=roi,
+        hemi=hemi,
+    )
+    filepath_parcel = resolve_existing_candidate(filepaths_candidate=filepaths_candidate)
+    return nifti_from_path(filepath_parcel)
+
+
+def load_md_macroparcel(subj, roi, hemi):
+    """
+    Build a macroparcel by summing matching MD subparcels.
+
+    Args:
+        subj (str):
+            Subject identifier.
+        roi (str):
+            Macroparcel name such as ``frontal`` or ``parietal``.
+        hemi (str):
+            Hemisphere label.
+
+    Returns:
+        np.ndarray:
+            macroparcel_mask (np.ndarray):
+                Summed MD macroparcel mask.
+    """
+
+    dir_md = resolve_parcellation_dir(subj=subj, parcellation="md")
+    filepaths_subparcels = sorted(filepath for filepath in dir_md.iterdir() if filepath.is_file())
+    filepaths_subparcels = [filepath for filepath in filepaths_subparcels if "func" in filepath.name]
+
+    hemi_prefix = hemi[0].lower()
+    roi_label = roi.lower()
+
+    if roi_label == "frontal":
+        filepaths_group = [
+            filepath
+            for filepath in filepaths_subparcels
+            if filepath.name.startswith(f"{hemi_prefix}.") and "Frontal" in filepath.name
+        ]
+    elif roi_label == "parietal":
+        filepaths_group = [
+            filepath
+            for filepath in filepaths_subparcels
+            if filepath.name.startswith(f"{hemi_prefix}.") and "Parietal" in filepath.name
+        ]
     else:
-        
-        if parcellation == 'julian_parcels':
-            roi = f'{hemi[0]}{roi}_functional.nii.gz'
-        elif parcellation == 'lang_parcels':
-            roi = f'{roi}.nii'
-        elif parcellation == 'ToM_parcels':
-            roi = f'{roi}_xyz.nii.gz'
-        elif parcellation == 'vwfa_parcels':
-            roi = f'l{roi}_functional.nii.gz'
-        elif parcellation == 'speech_parcels_v2':
-            roi = f'lang_speech_LH_1_5_mirrored_conjunction_final.nii'
-            
-        #load with nibabel to numpy
-        path = f'../data_analysis/masks/vols/{subj}/{parcellation}/{roi}'
-        return nifti_from_path(path)
+        raise ValueError(f"unsupported md macroparcel roi: {roi}")
+
+    if not filepaths_group:
+        raise FileNotFoundError(f"no md subparcels found for {subj=} {roi=} {hemi=}")
+
+    macroparcel_mask = None
+    for filepath_subparcel in filepaths_group:
+        subparcel_mask = nifti_from_path(filepath_subparcel)
+        if macroparcel_mask is None:
+            macroparcel_mask = np.zeros_like(subparcel_mask)
+        macroparcel_mask = macroparcel_mask + subparcel_mask
+
+    return macroparcel_mask
+
+
+def resolve_parcellation_dir(subj, parcellation):
+    """
+    Resolve a subject-specific parcel directory.
+
+    Args:
+        subj (str):
+            Subject identifier.
+        parcellation (str):
+            Parcel family name.
+
+    Returns:
+        Path:
+            dir_parcellation (Path):
+                Directory containing parcel files.
+    """
+
+    paths = get_python_analysis_paths()
+    dir_name = PARCELLATION_DIR_NAMES.get(parcellation, parcellation)
+    dir_parcellation = paths["dir_data_analysis"] / "masks" / "vols" / subj / dir_name
+    if dir_parcellation.exists():
+        return dir_parcellation
+
+    legacy_dir = paths["dir_data_analysis"] / "masks" / "vols" / subj / parcellation
+    if legacy_dir.exists():
+        return legacy_dir
+
+    return dir_parcellation
+
+
+def get_parcel_candidates(dir_parcellation, parcellation, roi, hemi):
+    """
+    Return supported parcel filename candidates for one roi.
+
+    Args:
+        dir_parcellation (Path):
+            Directory containing parcel files.
+        parcellation (str):
+            Parcel family name.
+        roi (str):
+            Region-of-interest name.
+        hemi (str):
+            Hemisphere label.
+
+    Returns:
+        list[Path]:
+            filepaths_candidate (list[Path]):
+                Candidate parcel file paths in preferred order.
+    """
+
+    hemi_prefix = hemi[0].lower()
+    normalized_parcellation = PARCELLATION_DIR_NAMES.get(parcellation, parcellation)
+
+    if normalized_parcellation == "julian":
+        filenames = [
+            f"{hemi}.{roi}.func.nii.gz",
+            f"{hemi_prefix}{roi}_functional.nii.gz",
+        ]
+    elif normalized_parcellation == "language":
+        filenames = [
+            f"{hemi}.{roi}.func.nii.gz",
+            f"{roi}.nii",
+            f"{roi}.nii.gz",
+        ]
+    elif normalized_parcellation == "tom":
+        filenames = [
+            f"{hemi}.{roi}.func.nii.gz",
+            f"{roi}.func.nii.gz",
+            f"{roi}_xyz.nii.gz",
+        ]
+    elif normalized_parcellation == "vwfa":
+        filenames = [
+            f"lh.{roi}.func.nii.gz",
+            f"l{roi}_functional.nii.gz",
+        ]
+    elif normalized_parcellation == "speech":
+        filenames = [
+            f"{hemi}.{roi}.func.nii.gz",
+            "lang_speech_LH_1_5_mirrored_conjunction_final.nii",
+            "lang_speech_LH_1_5_mirrored_conjunction_final.nii.gz",
+        ]
+    else:
+        filenames = [f"{hemi}.{roi}.func.nii.gz"]
+
+    return [dir_parcellation / filename for filename in filenames]
+
+
+def resolve_existing_candidate(filepaths_candidate):
+    """
+    Return the first existing path from a candidate list.
+
+    Args:
+        filepaths_candidate (list[Path]):
+            Candidate file paths in priority order.
+
+    Returns:
+        Path:
+            filepath_existing (Path):
+                First path that exists on disk.
+
+    Raises:
+        FileNotFoundError:
+            If none of the candidates exist.
+    """
+
+    for filepath_candidate in filepaths_candidate:
+        if filepath_candidate.exists():
+            return filepath_candidate
+
+    filepath_lines = "\n".join(str(filepath_candidate) for filepath_candidate in filepaths_candidate)
+    raise FileNotFoundError(f"parcel file not found. tried:\n{filepath_lines}")

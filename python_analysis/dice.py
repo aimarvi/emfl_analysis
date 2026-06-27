@@ -1,132 +1,249 @@
 import numpy as np
 import pandas as pd
 
-import gen_utils as guts
+import gen_utils as utils
 
-def compute_dice(sigs_1, sigs_2, label, df):
-    '''
-    Helper function to compute percentage-wise Dice coefficients
-    '''
-    sidx_1 = np.argsort(sigs_1)[::-1]
-    sidx_2 = np.argsort(sigs_2)[::-1]
 
-    assert len(sidx_1) == len(sidx_2)
-    num_voxels = len(sidx_1)
+def compute_dice_by_percent(sigs_1, sigs_2, subject, roi, label, percentages, dataframe_input):
+    """
+    Compute dice coefficients for matched top-percent voxel sets.
 
-    for perc in percentages:
-        k = int(num_voxels * perc)
-        set_1 = set(sidx_1[:k])
-        set_2 = set(sidx_2[:k])
+    Args:
+        sigs_1 (np.ndarray):
+            First significance vector.
+        sigs_2 (np.ndarray):
+            Second significance vector.
+        subject (str):
+            Subject identifier.
+        roi (str):
+            Region-of-interest name.
+        label (str):
+            Comparison label.
+        percentages (np.ndarray):
+            Percentages to evaluate.
+        dataframe_input (pd.DataFrame):
+            Results dataframe to append to.
 
-        intersection = len(set_1 & set_2)
-        dice = (2 * intersection) / (len(set_1) + len(set_2))
+    Returns:
+        pd.DataFrame:
+            dataframe_output (pd.DataFrame):
+                Updated results dataframe.
+    """
 
-        df.loc[len(df)] = {'Subject': subj, 'ROI': roi, 'Experiment': label, 'Percent': perc, 'Dice': dice}
-    return df
+    sorted_indices_1 = np.argsort(sigs_1)[::-1]
+    sorted_indices_2 = np.argsort(sigs_2)[::-1]
+    assert len(sorted_indices_1) == len(sorted_indices_2)
 
-def threshold_dice(sigs_1, sigs_2, threshold=3, label=None, df=None):
-    '''
-    Helper function to compute Dice coefficients based on significance thresholds
-    '''
-    set_1 = set(np.where(sigs_1 > threshold)[0])
-    set_2 = set(np.where(sigs_2 > threshold)[0])
+    num_voxels = len(sorted_indices_1)
+    for percentage in percentages:
+        num_selected = int(num_voxels * percentage)
+        voxel_set_1 = set(sorted_indices_1[:num_selected])
+        voxel_set_2 = set(sorted_indices_2[:num_selected])
+        intersection_size = len(voxel_set_1 & voxel_set_2)
+        dice_value = (2 * intersection_size) / (len(voxel_set_1) + len(voxel_set_2))
 
-    if len(set_1) + len(set_2) == 0:
-        dice = np.nan  # Avoid divide-by-zero
-    else:
-        intersection = len(set_1 & set_2)
-        dice = (2 * intersection) / (len(set_1) + len(set_2))
-
-    if df is not None:
-        df.loc[len(df)] = {
-            'Subject': subj,
-            'ROI': roi,
-            'Experiment': label,
-            'Threshold': 10**(-1*threshold),
-            'Dice': dice
+        dataframe_input.loc[len(dataframe_input)] = {
+            "Subject": subject,
+            "ROI": roi,
+            "Experiment": label,
+            "Percent": percentage,
+            "Dice": dice_value,
         }
 
-    return df
+    return dataframe_input
 
-if __name__=='__main__':
-    # subjs = ['kaneff01'] + [f'kaneff{lid:02d}' for lid in range(6,25)]
-    subjs = [f'kaneff{lid:02d}' for lid in [1, 13, 14, 17, 18]]
 
-    localizers = ['vis', 'bot_in_effloc5_space']
-    corrected = False
-    method = 'percent'
-    
-    contrasts = ['B-O']
-    rois = ['EBA']
-    hemis = ['rh']
-    ps = ['julian_parcels'] * len(contrasts)
-    
-    if method == 'percent':
-        cols = ['Subject', 'ROI', 'Experiment', 'Percent', 'Dice']
-    elif method == 'threshold':
-        cols = ['Subject', 'ROI', 'Experiment', 'Threshold', 'Dice']
+def compute_dice_by_threshold(sigs_1, sigs_2, subject, roi, label, threshold, dataframe_input):
+    """
+    Compute a dice coefficient for thresholded voxel sets.
+
+    Args:
+        sigs_1 (np.ndarray):
+            First significance vector.
+        sigs_2 (np.ndarray):
+            Second significance vector.
+        subject (str):
+            Subject identifier.
+        roi (str):
+            Region-of-interest name.
+        label (str):
+            Comparison label.
+        threshold (float):
+            Threshold applied to both vectors.
+        dataframe_input (pd.DataFrame):
+            Results dataframe to append to.
+
+    Returns:
+        pd.DataFrame:
+            dataframe_output (pd.DataFrame):
+                Updated results dataframe.
+    """
+
+    voxel_set_1 = set(np.where(sigs_1 > threshold)[0])
+    voxel_set_2 = set(np.where(sigs_2 > threshold)[0])
+
+    if len(voxel_set_1) + len(voxel_set_2) == 0:
+        dice_value = np.nan
     else:
-        raise ValueError(f'{method} not implemented')
-    df1 = pd.DataFrame(columns=cols)
-    
-    for ridx in range(len(rois)):
-        for hemi in hemis:
-            roi = rois[ridx]
-            contrast = contrasts[ridx]
-            parcellation = ps[ridx]
-        
-            for subj in subjs:
-                try:
-                    # Load and apply parcel
-                    parcel = guts.load_parcel(subj, parcellation, roi, hemi)
-                    pidx = np.where(parcel != 0)
+        intersection_size = len(voxel_set_1 & voxel_set_2)
+        dice_value = (2 * intersection_size) / (len(voxel_set_1) + len(voxel_set_2))
 
-                    if method == 'percent':
-                        percentages = np.arange(0.1, 1.1, 0.1)
-                    elif method =='threshold':
-                        threshold=2
+    dataframe_input.loc[len(dataframe_input)] = {
+        "Subject": subject,
+        "ROI": roi,
+        "Experiment": label,
+        "Threshold": 10 ** (-1 * threshold),
+        "Dice": dice_value,
+    }
+    return dataframe_input
+
+
+def main():
+    """
+    Compute within-localizer and between-localizer dice coefficients.
+
+    Returns:
+        pd.DataFrame:
+            results_df (pd.DataFrame):
+                Dice summary dataframe.
+    """
+
+    subjects = [f"kaneff{subject_id:02d}" for subject_id in [1, 13, 14, 17, 18]]
+    localizer_names = ["vis", "bot_in_effloc5_space"]
+    use_corrected_between = False
+    method_name = "percent"
+
+    contrast_names = ["B-O"]
+    roi_names = ["EBA"]
+    hemisphere_names = ["rh"]
+    parcellation_names = ["julian"] * len(contrast_names)
+
+    if method_name == "percent":
+        columns = ["Subject", "ROI", "Experiment", "Percent", "Dice"]
+        percentages = np.arange(0.1, 1.1, 0.1)
+    elif method_name == "threshold":
+        columns = ["Subject", "ROI", "Experiment", "Threshold", "Dice"]
+        threshold = 2
+    else:
+        raise ValueError(f"{method_name} not implemented")
+
+    dataframe_results = pd.DataFrame(columns=columns)
+
+    for roi_index, roi_name in enumerate(roi_names):
+        contrast_name = contrast_names[roi_index]
+        parcellation_name = parcellation_names[roi_index]
+
+        for hemisphere_name in hemisphere_names:
+            for subject_name in subjects:
+                parcel_mask = utils.load_parcel(
+                    subj=subject_name,
+                    parcellation=parcellation_name,
+                    roi=roi_name,
+                    hemi=hemisphere_name,
+                )
+                parcel_index = np.where(parcel_mask != 0)
+
+                for exp_name, label_name in zip(localizer_names, ["loc_1", "loc_2"]):
+                    sig_values_even = utils.load_sigs(subject_name, exp_name, contrast_name, "even")[
+                        parcel_index
+                    ].squeeze()
+                    sig_values_odd = utils.load_sigs(subject_name, exp_name, contrast_name, "odd")[
+                        parcel_index
+                    ].squeeze()
+
+                    if method_name == "percent":
+                        dataframe_results = compute_dice_by_percent(
+                            sig_values_even,
+                            sig_values_odd,
+                            subject_name,
+                            roi_name,
+                            label_name,
+                            percentages,
+                            dataframe_results,
+                        )
                     else:
-                        raise ValueError(f'{method} not implemented')
-        
-                    # ----- Within-localizer Dice -----
-                    for exp, label in zip(localizers, ['loc_1', 'loc_2']):
-                        sigs_even = guts.load_sigs(subj, exp, contrast, 'even')[pidx].squeeze()
-                        sigs_odd = guts.load_sigs(subj, exp, contrast, 'odd')[pidx].squeeze()
+                        dataframe_results = compute_dice_by_threshold(
+                            sig_values_even,
+                            sig_values_odd,
+                            subject_name,
+                            roi_name,
+                            label_name,
+                            threshold,
+                            dataframe_results,
+                        )
 
-                        if method == 'percent':
-                            df1 = compute_dice(sigs_even, sigs_odd, label, df1)
-                        else:
-                            df1 = threshold_dice(sigs_even, sigs_odd, threshold, label, df1)
-        
-        
-                    # ----- Between-localizer Dice -----
-                    if corrected:
-                        for run_1 in ['even', 'odd']:
-                            for run_2 in ['even', 'odd']:
-                                sigs_loc_1 = guts.load_sigs(subj, localizers[0], contrast, run_1)[pidx].squeeze()
-                                sigs_loc_2 = guts.load_sigs(subj, localizers[1], contrast, run_2)[pidx].squeeze()
+                if use_corrected_between:
+                    for run_label_1 in ["even", "odd"]:
+                        for run_label_2 in ["even", "odd"]:
+                            sig_values_loc_1 = utils.load_sigs(
+                                subject_name, localizer_names[0], contrast_name, run_label_1
+                            )[parcel_index].squeeze()
+                            sig_values_loc_2 = utils.load_sigs(
+                                subject_name, localizer_names[1], contrast_name, run_label_2
+                            )[parcel_index].squeeze()
 
-                                if method == 'percent':
-                                    df1 = compute_dice(sigs_loc_1, sigs_loc_2, 'between', df1)
-                                else:
-                                    df1 = threshold_dice(sigs_loc_1, sigs_loc_2, threshold, 'between', df1)
-        
+                            if method_name == "percent":
+                                dataframe_results = compute_dice_by_percent(
+                                    sig_values_loc_1,
+                                    sig_values_loc_2,
+                                    subject_name,
+                                    roi_name,
+                                    "between",
+                                    percentages,
+                                    dataframe_results,
+                                )
+                            else:
+                                dataframe_results = compute_dice_by_threshold(
+                                    sig_values_loc_1,
+                                    sig_values_loc_2,
+                                    subject_name,
+                                    roi_name,
+                                    "between",
+                                    threshold,
+                                    dataframe_results,
+                                )
+                else:
+                    sig_values_loc_1 = utils.load_sigs(
+                        subject_name, localizer_names[0], contrast_name, "all"
+                    )[parcel_index].squeeze()
+                    sig_values_loc_2 = utils.load_sigs(
+                        subject_name, localizer_names[1], contrast_name, "all"
+                    )[parcel_index].squeeze()
+
+                    if method_name == "percent":
+                        dataframe_results = compute_dice_by_percent(
+                            sig_values_loc_1,
+                            sig_values_loc_2,
+                            subject_name,
+                            roi_name,
+                            "between",
+                            percentages,
+                            dataframe_results,
+                        )
                     else:
-                        sigs_loc_1 = guts.load_sigs(subj, localizers[0], contrast, 'all')[pidx].squeeze()
-                        sigs_loc_2 = guts.load_sigs(subj, localizers[1], contrast, 'all')[pidx].squeeze()
+                        dataframe_results = compute_dice_by_threshold(
+                            sig_values_loc_1,
+                            sig_values_loc_2,
+                            subject_name,
+                            roi_name,
+                            "between",
+                            threshold,
+                            dataframe_results,
+                        )
 
-                        if method == 'percent':
-                            df1 = compute_dice(sigs_loc_1, sigs_loc_2, 'between', df1)
-                        else:
-                            df1 = threshold_dice(sigs_loc_1, sigs_loc_2, threshold, 'between', df1)
-        
-                except Exception as e:
-                    print(subj, e)
+    if method_name == "percent":
+        dataframe_grouped = dataframe_results.groupby(["ROI", "Experiment", "Percent"])["Dice"].agg(
+            ["mean", "std"]
+        )
+    else:
+        dataframe_grouped = dataframe_results.groupby(["ROI", "Experiment", "Threshold"])["Dice"].agg(
+            ["mean", "std"]
+        )
 
-        if method == 'percent':
-            grouped_df = df1.groupby(['ROI', 'Experiment', 'Percent'])['Dice'].agg(['mean', 'std'])
-        else:
-            grouped_df = df1.groupby(['ROI', 'Experiment', 'Threshold'])['Dice'].agg(['mean', 'std'])
-        print(grouped_df)
-    # df1.to_pickle('/mindhive/nklab5/projects/efficient_localizer/python_analyses/final_data/threshold_df1.pkl')
-    print('success! : ', localizers[0], localizers[1])
+    print(dataframe_grouped)
+    print("success!", localizer_names[0], localizer_names[1])
+    return dataframe_results
+
+
+if __name__ == "__main__":
+    dataframe_results = main()

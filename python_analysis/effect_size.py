@@ -1,89 +1,88 @@
-import os
 import numpy as np
-import seaborn as sns
 import pandas as pd
-import matplotlib.pyplot as plt
-import nibabel as nib
-
 from tqdm import tqdm
 
-import gen_utils as guts
+import gen_utils as utils
 
-# order is specific to efficient localizer paradigm
-vis_cond = ['Fa', 'S', 'B', 'O', 'W']
-aud_cond = ['FB', 'FP', 'NW', 'QLT', 'MATH']
 
-# subject ids
-subjs = ['kaneff01'] + [f'kaneff{sid:02d}' for sid in range(6,25)]
+def main():
+    """
+    Collect held-out beta values from top parcel voxels.
 
-# which runs and fROIs to analyze
-exp_name = 'vis'
-ortho_exp_name = 'aud'
-hemis = ['rh', 'lh']
-run_sets = ['even', 'odd']
+    Returns:
+        pd.DataFrame:
+            results_df (pd.DataFrame):
+                One row per subject, condition, hemisphere, and parcel.
+    """
 
-vis_rois = ['vwfa', 'FFA', 'STS', 'PPA', 'EBA', 'OFA', 'OPA', 'RSC', 'LOC']
-vis_contrasts = ['W-O', 'Fa-O', 'Fa-O', 'S-O', 'B-O','Fa-O', 'S-O','S-O','O-Scr']
+    visual_conditions = ["Fa", "S", "B", "O", "W"]
+    auditory_conditions = ["FB", "FP", "NW", "QLT", "MATH"]
 
-cols = ['subject', 'contrast', 'betas', 'hemi', 'parcel']
-df = pd.DataFrame(columns=cols)
+    subjects = ["kaneff01"] + [f"kaneff{subject_id:02d}" for subject_id in range(6, 25)]
+    hemispheres = ["rh", "lh"]
+    run_sets = ["even", "odd"]
 
-# only consider the top N% of selective voxels
-top_n_pc = 0.1
+    rois_visual = ["vwfa", "FFA", "STS", "PPA", "EBA", "OFA", "OPA", "RSC", "LOC"]
+    contrasts_visual = ["W-O", "Fa-O", "Fa-O", "S-O", "B-O", "Fa-O", "S-O", "S-O", "O-Scr"]
 
-for roi in tqdm(vis_rois):
-    for hemi in hemis:
+    top_fraction = 0.1
+    rows = []
 
-        # vwfa is left hemi only
-        if roi == 'vwfa' and hemi == 'rh':
-            continue
+    for roi_name in tqdm(rois_visual):
+        contrast_name = contrasts_visual[rois_visual.index(roi_name)]
 
-        # use separate parcellation for vwfa parcels (from Saygin)
-        for subj in subjs:
-            if roi == 'vwfa':
-                parcellation = 'vwfa_parcels'
-            else:
-                parcellation = 'julian_parcels'
+        for hemisphere_name in hemispheres:
+            if roi_name == "vwfa" and hemisphere_name == "rh":
+                continue
 
-            for runs in run_sets:
-                # select voxels using a subset of runs and measure selectivity in held-out runs
-                held_out = 'odd' if runs == 'even' else 'even'
+            parcellation_name = "vwfa" if roi_name == "vwfa" else "julian"
 
-                # consider only the top N% of voxels within an anatomical parcel
-                parcel = guts.load_parcel(subj, parcellation, roi, hemi)
-                contrast = vis_contrasts[vis_rois.index(roi)]
-                effloc_sigs = guts.load_sigs(subj, exp_name, contrast, runs)
+            for subject_name in subjects:
+                parcel_mask = utils.load_parcel(
+                    subj=subject_name,
+                    parcellation=parcellation_name,
+                    roi=roi_name,
+                    hemi=hemisphere_name,
+                )
+                parcel_index = parcel_mask != 0
 
-                effloc_sigs_parcel = np.squeeze(effloc_sigs[parcel!=0])
-                sorted_indices = np.argsort(effloc_sigs_parcel)[::-1]
+                for run_label in run_sets:
+                    held_out_label = "odd" if run_label == "even" else "even"
+                    sig_values = utils.load_sigs(subject_name, "vis", contrast_name, run_label)
+                    sig_values_parcel = np.squeeze(sig_values[parcel_index])
+                    sorted_indices = np.argsort(sig_values_parcel)[::-1]
+                    top_indices = sorted_indices[: int(np.round(len(sorted_indices) * top_fraction))]
 
-                top_idxs = sorted_indices[:int(np.round(len(sorted_indices)*(top_n_pc)))]
+                    beta_values_visual = utils.load_betas(subject_name, "vis", held_out_label)
+                    for condition_index, condition_name in enumerate(visual_conditions):
+                        beta_values_condition = beta_values_visual[:, :, :, condition_index]
+                        beta_values_parcel = np.squeeze(beta_values_condition[parcel_index])
+                        rows.append(
+                            {
+                                "subject": subject_name,
+                                "contrast": condition_name,
+                                "betas": np.mean(beta_values_parcel[top_indices]),
+                                "hemi": hemisphere_name,
+                                "parcel": roi_name,
+                            }
+                        )
 
-                # get betas in held-out runs
-                alt_betas = guts.load_betas(subj, exp_name, held_out)
-                for i in range(len(vis_cond)):
-                    betas = alt_betas[:,:,:,i]
-                    betas_parcel = np.squeeze(betas[parcel!=0])
-                    betas_top = np.mean(betas_parcel[top_idxs])
+                    beta_values_auditory = utils.load_betas(subject_name, "aud", held_out_label)
+                    for condition_index, condition_name in enumerate(auditory_conditions):
+                        beta_values_condition = beta_values_auditory[:, :, :, condition_index]
+                        beta_values_parcel = np.squeeze(beta_values_condition[parcel_index])
+                        rows.append(
+                            {
+                                "subject": subject_name,
+                                "contrast": condition_name,
+                                "betas": np.mean(beta_values_parcel[top_indices]),
+                                "hemi": hemisphere_name,
+                                "parcel": roi_name,
+                            }
+                        )
 
-                    df.loc[len(df)] = {
-                        'subject': subj,
-                        'contrast': vis_cond[i],
-                        'betas': betas_top,
-                        'hemi': hemi,
-                        'parcel': roi          
-                    }
+    return pd.DataFrame(rows)
 
-                more_betas = guts.load_betas(subj, ortho_exp_name, held_out)
-                for i in range(len(aud_cond)):
-                    betas = more_betas[:,:,:,i]
-                    betas_parcel = np.squeeze(betas[parcel!=0])
-                    betas_top = np.mean(betas_parcel[top_idxs])
 
-                    df.loc[len(df)] = {
-                        'subject': subj,
-                        'contrast': aud_cond[i],
-                        'betas': betas_top,
-                        'hemi': hemi,
-                        'parcel': roi      
-                    }
+if __name__ == "__main__":
+    dataframe_results = main()

@@ -1,60 +1,68 @@
-import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-
+import pandas as pd
 from tqdm import tqdm
 
-import gen_utils as guts
+import gen_utils as utils
 
-'''
-performs growing window analysis across two localizers
 
-sorts voxels by significance values in loc_1
-looks at response in loc_2
-'''
+def main():
+    """
+    Collect growing-window beta summaries across two localizers.
 
-subjs = ['kaneff01'] + [f'kaneff{lid:02d}' for lid in range(6,25)]
+    Returns:
+        dict[str, pd.DataFrame]:
+            dataframes_by_roi (dict[str, pd.DataFrame]):
+                One dataframe per roi.
+    """
 
-# sort voxels by loc_1
-# measure response in loc_2
-loc_1 = 'vis'
-loc_2 = 'foss'
+    subjects = ["kaneff01"] + [f"kaneff{subject_id:02d}" for subject_id in range(6, 25)]
+    roi_names = ["FFA", "OFA", "STS", "PPA", "OPA", "RSC"]
+    contrast_names = ["Fa-O", "Fa-O", "Fa-O", "S-O", "S-O", "S-O"]
+    hemisphere_names = ["rh"]
+    condition_names = ["Fa", "O", "Scr", "S"]
 
-# loc_2 conditions. order is important!
-conditions = ['Fa', 'O', 'Scr', 'S']
+    dataframes_by_roi = {}
 
-rois = ['FFA', 'OFA', 'STS', 'PPA', 'OPA', 'RSC']
-contrasts = ['Fa-O', 'Fa-O', 'Fa-O', 'S-O', 'S-O', 'S-O']
-parcelation = 'julian_parcels'
-hemis = ['rh']
+    for roi_index, roi_name in enumerate(roi_names):
+        contrast_name = contrast_names[roi_index]
+        rows = []
 
-for rid in range(len(rois)):
-    cols = ['subject', 'percent', 'condition', 'beta']
-    df = pd.DataFrame(columns=cols)
-    
-    roi = rois[rid]
-    contrast = contrasts[rid]
-    
-    for hemi in hemis:
-        for subj in tqdm(subjs):
-            parcel = gut.load_parcel(subj, parcellation, roi, hemi)
-            pidx = np.where(parcel != 0)
+        for hemisphere_name in hemisphere_names:
+            for subject_name in tqdm(subjects):
+                parcel_mask = utils.load_parcel(
+                    subj=subject_name,
+                    parcellation="julian",
+                    roi=roi_name,
+                    hemi=hemisphere_name,
+                )
+                parcel_index = np.where(parcel_mask != 0)
 
-            sigs = gut.load_sigs(subj, loc_1, contrast, 'all')
-            sigs = sigs[pidx].squeeze()
+                sig_values = utils.load_sigs(subject_name, "vis", contrast_name, "all")[parcel_index].squeeze()
+                sorted_indices = np.argsort(sig_values)[::-1]
 
-            sidx = np.argsort(sigs)[::-1]
+                beta_values_all = utils.load_betas(subject_name, "foss", "all")
+                beta_values_condition = beta_values_all[
+                    parcel_index[0], parcel_index[1], parcel_index[2], : len(condition_names)
+                ]
+                beta_values_condition = beta_values_condition[sorted_indices, :]
 
-            all_betas = gut.load_betas(subj, loc_2, 'all')
-            cond_betas = all_betas[pidx[0], pidx[1], pidx[2], :len(conditions)]
-            cond_betas = cond_betas[sidx, :]
+                num_voxels = beta_values_condition.shape[0]
+                for percent_selected in range(1, 101):
+                    num_selected = int(np.ceil(percent_selected / 100 * num_voxels))
+                    for condition_index, condition_name in enumerate(condition_names):
+                        rows.append(
+                            {
+                                "subject": subject_name,
+                                "percent": percent_selected,
+                                "condition": condition_name,
+                                "beta": np.mean(beta_values_condition[:num_selected, condition_index]),
+                            }
+                        )
 
-            num_voxels = cond_betas.shape[0]
+        dataframes_by_roi[roi_name] = pd.DataFrame(rows)
 
-            for N in range(1, 101):  # N% from 1 to 100
-                top_N_voxels = int(np.ceil(N / 100 * num_voxels))  # Get top N% voxels
-                running_means = {condition: np.mean(cond_betas[:top_N_voxels, cid]) for cid, condition in enumerate(conditions)}
+    return dataframes_by_roi
 
-                for condition, mean_beta in running_means.items():
-                    df.loc[len(df)] = {'subject': subj, 'percent': N, 'condition': condition, 'beta': mean_beta}
+
+if __name__ == "__main__":
+    roi_dataframes = main()

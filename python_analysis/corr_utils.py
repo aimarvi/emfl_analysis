@@ -1,207 +1,213 @@
-import os
-import nibabel as nib
 import numpy as np
-
 from scipy import stats
-from scipy.stats import norm
-from tqdm import tqdm
 
-from gen_utils import *
+from gen_utils import load_betas, load_parcel, load_sigs
 
-def get_correlations(subj, roi, hemi, parcellation, loc_1, contrast_1, within=True, loc_2=None, contrast_2=None, full=False):
-'''
-returns the split-half reliability between or within localizers
 
-args:
-    subj (str): subject name
-    roi (str): fROI name (eg. 'FFA')
-    hemi (str): hemisphere. one of ['lh', 'rh']
-    parcellation (str): dir of parcels (eg. 'julian_parcels')
-    loc_1 (str): localizer name (eg. 'vis', 'aud')
-    contrast_1 (str): contrast name (eg. 'Fa-O')
-    within (bool): if True, within localizer split-half. 
+def get_correlations(
+    subj,
+    roi,
+    hemi,
+    parcellation,
+    loc_1,
+    contrast_1,
+    within=True,
+    loc_2=None,
+    contrast_2=None,
+    full=False,
+):
+    """
+    Compute within-localizer or across-localizer voxelwise correlations.
 
-  if within:
-    loc_2 (str): localizer name (eg. 'foss')
-    contrast_2 (str): contrast name (eg. 'Fa-O')
-    full (bool): if True, control for even-odd splits in between-localizer comparison
+    Args:
+        subj (str):
+            Subject identifier.
+        roi (str):
+            Region-of-interest name.
+        hemi (str):
+            Hemisphere label.
+        parcellation (str):
+            Parcel family name.
+        loc_1 (str):
+            First localizer name.
+        contrast_1 (str):
+            Contrast used for the first localizer.
+        within (bool):
+            If ``True``, compute split-half reliability within ``loc_1``.
+        loc_2 (str | None):
+            Second localizer name for across-localizer comparisons.
+        contrast_2 (str | None):
+            Contrast used for the second localizer.
+        full (bool):
+            If ``True``, use all even/odd pairings across localizers.
 
-returns:
-    (dict): changes based on args. 
-'''
+    Returns:
+        dict:
+            correlation_results (dict):
+                Correlation summary for the requested comparison.
+    """
 
-    if within: #split-half
+    parcel_mask = load_parcel(subj=subj, parcellation=parcellation, roi=roi, hemi=hemi)
+    parcel_index = parcel_mask != 0
 
-        #load and parcellate the data
-        parcel = load_parcel(subj, parcellation, roi, hemi)
-        sigs_even = load_sigs(subj, loc_1, contrast_1, 'even')
-        sigs_odd = load_sigs(subj, loc_1, contrast_1, 'odd')
-        sigs_even_parcel = np.squeeze(sigs_even[parcel!=0])
-        sigs_odd_parcel = np.squeeze(sigs_odd[parcel!=0])
-        
+    if within:
+        sig_values_even = np.squeeze(load_sigs(subj, loc_1, contrast_1, "even")[parcel_index])
+        sig_values_odd = np.squeeze(load_sigs(subj, loc_1, contrast_1, "odd")[parcel_index])
+        correlation_result = stats.pearsonr(sig_values_even, sig_values_odd)
+        r_value = correlation_result.statistic
+        return {
+            "r": r_value,
+            "p": correlation_result.pvalue,
+            "r_trans": np.arctanh(r_value),
+            "even": sig_values_even,
+            "odd": sig_values_odd,
+        }
 
-        #calculate and transform the correlations
-        corr = stats.pearsonr(sigs_even_parcel, sigs_odd_parcel)
-        r_val = corr.statistic
-        p_val = corr.pvalue
-        r_trans_val = np.arctanh(r_val)
-        return({'r':r_val, 'p':p_val, 'r_trans':r_trans_val, 'even':sigs_even_parcel, 'odd':sigs_odd_parcel})
-        
-        
-    elif (not within) and (not full): #across localizers
-        #load and parcellate the data
-        parcel = load_parcel(subj, parcellation, roi, hemi)
-        sigs_loc_1 = load_sigs(subj, loc_1, contrast_1, 'all')
-        sigs_loc_2 = load_sigs(subj, loc_2, contrast_2, 'all')
-        sigs_loc_1_parcel = np.squeeze(sigs_loc_1[parcel!=0])
-        sigs_loc_2_parcel = np.squeeze(sigs_loc_2[parcel!=0])
+    if not full:
+        sig_values_loc_1 = np.squeeze(load_sigs(subj, loc_1, contrast_1, "all")[parcel_index])
+        sig_values_loc_2 = np.squeeze(load_sigs(subj, loc_2, contrast_2, "all")[parcel_index])
+        correlation_result = stats.pearsonr(sig_values_loc_1, sig_values_loc_2)
+        r_value = correlation_result.statistic
+        return {
+            "r": r_value,
+            "p": correlation_result.pvalue,
+            "r_trans": np.arctanh(r_value),
+            "loc_1": sig_values_loc_1,
+            "loc_2": sig_values_loc_2,
+        }
 
-        #calculate and transform the correlations
-        corr = stats.pearsonr(sigs_loc_1_parcel, sigs_loc_2_parcel)
-        r_val = corr.statistic
-        p_val = corr.pvalue
-        r_trans_val = np.arctanh(r_val)
-        return({'r':r_val, 'p':p_val, 'r_trans':r_trans_val, 'loc_1':sigs_loc_1_parcel, 'loc_2':sigs_loc_2_parcel})
+    sig_values_loc_1_even = np.squeeze(load_sigs(subj, loc_1, contrast_1, "even")[parcel_index])
+    sig_values_loc_1_odd = np.squeeze(load_sigs(subj, loc_1, contrast_1, "odd")[parcel_index])
+    sig_values_loc_2_even = np.squeeze(load_sigs(subj, loc_2, contrast_2, "even")[parcel_index])
+    sig_values_loc_2_odd = np.squeeze(load_sigs(subj, loc_2, contrast_2, "odd")[parcel_index])
 
-    elif (not within) and full:
-        
-        parcel = load_parcel(subj, parcellation, roi, hemi)
-        
-        sigs_loc_1_even = load_sigs(subj, loc_1, contrast_1, 'even')
-        sigs_loc_1_parcel_even = np.squeeze(sigs_loc_1_even[parcel!=0])
-        
-        sigs_loc_1_odd = load_sigs(subj, loc_1, contrast_1, 'odd')
-        sigs_loc_1_parcel_odd = np.squeeze(sigs_loc_1_odd[parcel!=0])
-        
-        sigs_loc_2_even = load_sigs(subj, loc_2, contrast_2, 'even')
-        sigs_loc_2_parcel_even = np.squeeze(sigs_loc_2_even[parcel!=0])
-        
-        sigs_loc_2_odd = load_sigs(subj, loc_2, contrast_2, 'odd')
-        sigs_loc_2_parcel_odd = np.squeeze(sigs_loc_2_odd[parcel!=0])
+    r_loc_1_within = stats.pearsonr(sig_values_loc_1_even, sig_values_loc_1_odd).statistic
+    r_loc_2_within = stats.pearsonr(sig_values_loc_2_even, sig_values_loc_2_odd).statistic
 
-        corr_loc_1_within = stats.pearsonr(sigs_loc_1_parcel_even, sigs_loc_1_parcel_odd)
-        r_loc_1_within = corr_loc_1_within.statistic
-        p_loc_1_within = corr_loc_1_within.pvalue
-        r_trans_loc_1_within = np.arctanh(r_loc_1_within)
+    r_across_even_even = stats.pearsonr(sig_values_loc_1_even, sig_values_loc_2_even).statistic
+    r_across_even_odd = stats.pearsonr(sig_values_loc_1_even, sig_values_loc_2_odd).statistic
+    r_across_odd_odd = stats.pearsonr(sig_values_loc_1_odd, sig_values_loc_2_odd).statistic
+    r_across_odd_even = stats.pearsonr(sig_values_loc_1_odd, sig_values_loc_2_even).statistic
 
-        corr_loc_2_within = stats.pearsonr(sigs_loc_2_parcel_even, sigs_loc_2_parcel_odd)
-        r_loc_2_within = corr_loc_2_within.statistic
-        p_loc_2_within = corr_loc_2_within.pvalue
-        r_trans_loc_2_within = np.arctanh(r_loc_2_within)
+    r_across_mean = np.mean(
+        [r_across_even_even, r_across_even_odd, r_across_odd_odd, r_across_odd_even]
+    )
+    return {
+        "loc_1": r_loc_1_within,
+        "loc_2": r_loc_2_within,
+        "across": r_across_mean,
+        "r_trans": np.arctanh(r_across_mean),
+    }
 
-        corr_across_even = stats.pearsonr(sigs_loc_1_parcel_even, sigs_loc_2_parcel_even)
-        r_across_even = corr_across_even.statistic
-        p_across_even = corr_across_even.pvalue
-        r_trans_across_even = np.arctanh(r_across_even)
 
-        corr_across_even_odd = stats.pearsonr(sigs_loc_1_parcel_even, sigs_loc_2_parcel_odd)
-        r_across_even_odd = corr_across_even_odd.statistic
-        p_across_even_odd = corr_across_even_odd.pvalue
-        r_trans_across_even_odd = np.arctanh(r_across_even_odd)
-
-        corr_across_odd = stats.pearsonr(sigs_loc_1_parcel_odd, sigs_loc_2_parcel_odd)
-        r_across_odd = corr_across_odd.statistic
-        p_across_odd = corr_across_odd.pvalue
-        r_trans_across_odd = np.arctanh(r_across_odd)
-        
-        corr_across_odd_even = stats.pearsonr(sigs_loc_1_parcel_odd, sigs_loc_2_parcel_even)
-        r_across_odd_even = corr_across_odd_even.statistic
-        p_across_odd_even = corr_across_odd_even.pvalue
-        r_trans_across_odd_even = np.arctanh(r_across_odd_even)
-        
-        across_r = np.mean([r_across_even, r_across_odd, r_across_even_odd, r_across_odd_even])
-        r_trans_val = np.arctanh(across_r)
-
-        return({'loc_1':r_loc_1_within, 'loc_2':r_loc_2_within, 'across':across_r, 'r_trans':r_trans_val})
-
-    else:
-        print('please specify valid conditions!')
-        return None
-        
-        
 def sort_voxels_for_growing_window(subj, roi, hemi, parcellation, localizer, contrast, conds):
-'''
-growing window analysis within a localizer. 
-average beta weights of voxels as a function of ROI size, sorted by contrast significance in held-out runs
+    """
+    Sort voxels by held-out localizer significance for a growing-window analysis.
 
-args:
-    subj (str): subject name
-    roi (str): fROI name (eg. 'FFA')
-    hemi (str): hemisphere. one of ['lh', 'rh']
-    parcellation (str): dir of parcels (eg. 'julian_parcels')
-    localizer (str): localizer name (eg. 'vis', 'aud')
-    contrast (str): contrast whose significance to sort by (eg. 'Fa-O')
-    conds (list[str]): all localizer conditions, in paradigm order (eg. ['Fa', 'S', 'B', 'O', 'W'])
+    Args:
+        subj (str):
+            Subject identifier.
+        roi (str):
+            Region-of-interest name.
+        hemi (str):
+            Hemisphere label.
+        parcellation (str):
+            Parcel family name.
+        localizer (str):
+            Localizer name.
+        contrast (str):
+            Contrast used to rank voxels.
+        conds (list[str]):
+            Localizer conditions in paradigm order.
 
-returns:
-    (dict): sigs (dict), betas (dict)
-'''
+    Returns:
+        dict:
+            growing_window_results (dict):
+                Sorted significance values and running beta means by condition.
+    """
 
-    #load the data
-    parcel = load_parcel(subj, parcellation, roi, hemi)
-    sigs_even = load_sigs(subj, localizer, contrast, 'even')
-    betas_odd = load_betas(subj, localizer, 'odd')
-    sigs_even_parcel = np.squeeze(sigs_even[parcel!=0])
+    parcel_mask = load_parcel(subj=subj, parcellation=parcellation, roi=roi, hemi=hemi)
+    parcel_index = parcel_mask != 0
 
-    #get sorted indices by ranking voxels in contrast significance
-    indices = np.argsort(sigs_even_parcel)[::-1]
-    betas_conditions = {}
-    for cid in range(len(conds)):
-        betas_cond = np.squeeze(betas_odd[:,:,:,cid])
-        betas_cond_parcel = np.squeeze(betas_cond[parcel!=0])
-        betas_sorted = betas_cond_parcel[indices]
-        
-        #average over top N betas for every N
-        windows = np.arange(1, len(indices), 1)
-        avg_betas = []
-        for w in windows:
-            vals = betas_sorted[:w]
-            avg_betas.append(np.mean(vals))
-        betas_conditions[conds[cid]] = avg_betas
-        
-    sigs_sorted = sigs_even_parcel[indices]
-    return({'sigs':sigs_sorted, 'betas':betas_conditions})
-    
+    sig_values_even = load_sigs(subj, localizer, contrast, "even")
+    beta_values_odd = load_betas(subj, localizer, "odd")
+    sig_values_even_parcel = np.squeeze(sig_values_even[parcel_index])
 
-def sort_voxels_gw_across_localizers(subj, roi, hemi, parcellation, loc_1, contrast_1, loc_2, conds_2):
-'''
-growing window analysis between two localizers
-average beta weights of voxels as a function of ROI size, sorted by contrast significance in held-out runs of another localizer
+    sorted_indices = np.argsort(sig_values_even_parcel)[::-1]
+    betas_by_condition = {}
 
-args:
-    subj (str): subject name
-    roi (str): fROI name (eg. 'FFA')
-    hemi (str): hemisphere. one of ['lh', 'rh']
-    parcellation (str): dir of parcels (eg. 'julian_parcels')
-    loc_1 (str): localizer name (eg. 'vis', 'aud')
-    contrast_1 (str): contrast in localizer 1 whose significance to sort by (eg. 'Fa-O')
-    loc_2 (str): localizer name (eg. 'foss')
-    conds_2 (list[str]): all conditions in localizer 2 (eg. ['Fa', 'O', 'Scr', 'S'])
+    for condition_index, condition_name in enumerate(conds):
+        beta_values_condition = np.squeeze(beta_values_odd[:, :, :, condition_index])
+        beta_values_parcel = np.squeeze(beta_values_condition[parcel_index])
+        beta_values_sorted = beta_values_parcel[sorted_indices]
 
-returns:
-    (dict): sigs (dict), betas (dict)
-'''
+        voxel_windows = np.arange(1, len(sorted_indices), 1)
+        running_means = []
+        for window_size in voxel_windows:
+            running_means.append(np.mean(beta_values_sorted[:window_size]))
+        betas_by_condition[condition_name] = running_means
 
-    #load the data
-    parcel = load_parcel(subj, parcellation, roi, hemi)
-    sigs = load_sigs(subj, loc_1, contrast_1, 'all')
-    betas = load_betas(subj, loc_2, 'all')
-    sigs_parcel = np.squeeze(sigs[parcel!=0])
+    sig_values_sorted = sig_values_even_parcel[sorted_indices]
+    return {"sigs": sig_values_sorted, "betas": betas_by_condition}
 
-    #get sorted indices by ranking voxels in contrast significance
-    indices = np.argsort(sigs_parcel)[::-1]
-    betas_conditions = {}
-    for cid in range(len(conds_2)):
-        betas_cond = np.squeeze(betas[:,:,:,cid])
-        betas_cond_parcel = np.squeeze(betas_cond[parcel!=0])
-        betas_sorted = betas_cond_parcel[indices]
 
-        windows = np.arange(1,len(indices), 1)
-        avg_betas = []
-        for w in windows:
-            vals = betas_sorted[:w]
-            avg_betas.append(np.mean(vals))
-        betas_conditions[conds_2[cid]] = avg_betas
+def sort_voxels_gw_across_localizers(
+    subj,
+    roi,
+    hemi,
+    parcellation,
+    loc_1,
+    contrast_1,
+    loc_2,
+    conds_2,
+):
+    """
+    Sort voxels by one localizer and measure running means in another.
 
-    sigs_sorted = sigs_parcel[indices]
-    return ({'sigs':sigs_sorted, 'betas':betas_conditions})
+    Args:
+        subj (str):
+            Subject identifier.
+        roi (str):
+            Region-of-interest name.
+        hemi (str):
+            Hemisphere label.
+        parcellation (str):
+            Parcel family name.
+        loc_1 (str):
+            Localizer used to rank voxels.
+        contrast_1 (str):
+            Contrast used to rank voxels.
+        loc_2 (str):
+            Localizer used to measure beta responses.
+        conds_2 (list[str]):
+            Condition names for ``loc_2``.
+
+    Returns:
+        dict:
+            growing_window_results (dict):
+                Sorted significance values and running beta means by condition.
+    """
+
+    parcel_mask = load_parcel(subj=subj, parcellation=parcellation, roi=roi, hemi=hemi)
+    parcel_index = parcel_mask != 0
+
+    sig_values = load_sigs(subj, loc_1, contrast_1, "all")
+    beta_values = load_betas(subj, loc_2, "all")
+    sig_values_parcel = np.squeeze(sig_values[parcel_index])
+
+    sorted_indices = np.argsort(sig_values_parcel)[::-1]
+    betas_by_condition = {}
+
+    for condition_index, condition_name in enumerate(conds_2):
+        beta_values_condition = np.squeeze(beta_values[:, :, :, condition_index])
+        beta_values_parcel = np.squeeze(beta_values_condition[parcel_index])
+        beta_values_sorted = beta_values_parcel[sorted_indices]
+
+        voxel_windows = np.arange(1, len(sorted_indices), 1)
+        running_means = []
+        for window_size in voxel_windows:
+            running_means.append(np.mean(beta_values_sorted[:window_size]))
+        betas_by_condition[condition_name] = running_means
+
+    sig_values_sorted = sig_values_parcel[sorted_indices]
+    return {"sigs": sig_values_sorted, "betas": betas_by_condition}

@@ -1,95 +1,98 @@
-import os
 import numpy as np
-import seaborn as sns
 import pandas as pd
-import matplotlib.pyplot as plt
-import nibabel as nib
-
 from tqdm import tqdm
 
-import gen_utils as guts
-
-save_dir = '../data/'
-if not os.path.exists(save_dir):
-    os.mkdir(save_dir)
+from emfl_paths import get_python_analysis_paths
+import gen_utils as utils
 
 
-# mapping of subjects across original and repeat experiments
-subjs = {
-    'kaneff01': 'kanderson05',
-    'kaneff13': 'kanderson04',
-    'kaneff14': 'kanderson01',
-    'kaneff17': 'kanderson02',
-    'kaneff18': 'kanderson03',
-}
-hemis = ['rh', 'lh']
+def main():
+    """
+    Compare EMFL responses against repeat visual-only runs.
 
-vis_rois = ['vwfa', 'FFA', 'STS', 'PPA', 'EBA', 'OFA', 'OPA', 'RSC', 'LOC']
-vis_contrasts = ['W-O', 'Fa-O', 'Fa-O', 'S-O', 'B-O','Fa-O', 'S-O','S-O','O-Scr']
+    Returns:
+        pd.DataFrame:
+            results_df (pd.DataFrame):
+                One row per subject, experiment, condition, hemisphere, and parcel.
+    """
 
-vis_cond = ['Fa', 'S', 'B', 'O', 'W']
-aud_cond = ['FB', 'FP', 'NW', 'QLT', 'MATH']
+    paths = get_python_analysis_paths()
+    paths["dir_final_data"].mkdir(exist_ok=True)
 
-# only consider top N% of voxels
-top_n_pc = 0.1
+    subject_map = {
+        "kaneff01": "kanderson05",
+        "kaneff13": "kanderson04",
+        "kaneff14": "kanderson01",
+        "kaneff17": "kanderson02",
+        "kaneff18": "kanderson03",
+    }
+    hemispheres = ["rh", "lh"]
 
-cols = ['subject', 'experiment', 'contrast', 'betas', 'hemi', 'parcel']
-df = pd.DataFrame(columns=cols)
+    rois_visual = ["vwfa", "FFA", "STS", "PPA", "EBA", "OFA", "OPA", "RSC", "LOC"]
+    contrasts_visual = ["W-O", "Fa-O", "Fa-O", "S-O", "B-O", "Fa-O", "S-O", "S-O", "O-Scr"]
+    visual_conditions = ["Fa", "S", "B", "O", "W"]
+    top_fraction = 0.1
 
-for roi in tqdm(vis_rois):
-    for hemi in hemis:
-        if roi == 'vwfa' and hemi == 'rh':
-            continue
-            
-        for emfl, vis in subjs.items():
-            if roi == 'vwfa':
-                parcellation = 'vwfa_parcels'
-            else:
-                parcellation = 'julian_parcels'
-                
-            parcel = guts.load_parcel(emfl, parcellation, roi, hemi)
-            contrast = vis_contrasts[vis_rois.index(roi)]
+    rows = []
 
-            # select top N% selective voxels, defined in the last 2 runs
-            effloc_sigs = guts.load_sigs(emfl, 'vis', contrast, 'last')
+    for roi_name in tqdm(rois_visual):
+        contrast_name = contrasts_visual[rois_visual.index(roi_name)]
 
-            effloc_sigs_parcel = np.squeeze(effloc_sigs[parcel!=0])
-            sorted_indices = np.argsort(effloc_sigs_parcel)[::-1]
+        for hemisphere_name in hemispheres:
+            if roi_name == "vwfa" and hemisphere_name == "rh":
+                continue
 
-            top_idxs = sorted_indices[:int(np.round(len(sorted_indices)*(top_n_pc)))]
+            parcellation_name = "vwfa" if roi_name == "vwfa" else "julian"
 
-            # betas from held-out runs of original, visual+audio stimuli
-            # held-out are the first 3 runs
-            alt_betas = guts.load_betas(emfl, 'vis', 'first')
-            for i in range(len(vis_cond)):
-                betas = alt_betas[:,:,:,i]
-                betas_parcel = np.squeeze(betas[parcel!=0])
-                betas_top = np.mean(betas_parcel[top_idxs])
+            for subject_emfl, subject_repeat in subject_map.items():
+                parcel_mask = utils.load_parcel(
+                    subj=subject_emfl,
+                    parcellation=parcellation_name,
+                    roi=roi_name,
+                    hemi=hemisphere_name,
+                )
+                parcel_index = parcel_mask != 0
 
-                df.loc[len(df)] = {
-                    'subject': emfl,
-                    'experiment': 'emfl',
-                    'contrast': vis_cond[i],
-                    'betas': betas_top,
-                    'hemi': hemi,
-                    'parcel': roi          
-                }
+                sig_values = utils.load_sigs(subject_emfl, "vis", contrast_name, "last")
+                sig_values_parcel = np.squeeze(sig_values[parcel_index])
+                sorted_indices = np.argsort(sig_values_parcel)[::-1]
+                top_indices = sorted_indices[: int(np.round(len(sorted_indices) * top_fraction))]
 
-            # betas from repeat subjects with visual-only stimuli
-            # 'all' because we only ran the first 3 runs
-            vis_betas = guts.load_betas(vis, 'effloc', 'all')
-            for i in range(len(vis_cond)):
-                betas = vis_betas[:,:,:,i]
-                betas_parcel = np.squeeze(betas[parcel!=0])
-                betas_top = np.mean(betas_parcel[top_idxs])
+                beta_values_emfl = utils.load_betas(subject_emfl, "vis", "first")
+                for condition_index, condition_name in enumerate(visual_conditions):
+                    beta_values_condition = beta_values_emfl[:, :, :, condition_index]
+                    beta_values_parcel = np.squeeze(beta_values_condition[parcel_index])
+                    rows.append(
+                        {
+                            "subject": subject_emfl,
+                            "experiment": "emfl",
+                            "contrast": condition_name,
+                            "betas": np.mean(beta_values_parcel[top_indices]),
+                            "hemi": hemisphere_name,
+                            "parcel": roi_name,
+                        }
+                    )
 
-                df.loc[len(df)] = {
-                    'subject': emfl,
-                    'experiment': 'vis',
-                    'contrast': vis_cond[i],
-                    'betas': betas_top,
-                    'hemi': hemi,
-                    'parcel': roi      
-                }
+                beta_values_repeat = utils.load_betas(subject_repeat, "effloc", "all")
+                for condition_index, condition_name in enumerate(visual_conditions):
+                    beta_values_condition = beta_values_repeat[:, :, :, condition_index]
+                    beta_values_parcel = np.squeeze(beta_values_condition[parcel_index])
+                    rows.append(
+                        {
+                            "subject": subject_emfl,
+                            "experiment": "vis",
+                            "contrast": condition_name,
+                            "betas": np.mean(beta_values_parcel[top_indices]),
+                            "hemi": hemisphere_name,
+                            "parcel": roi_name,
+                        }
+                    )
 
-df.to_pickle(os.path.join(save_dir, 'uni_EMFL-select.pkl'))
+    dataframe_results = pd.DataFrame(rows)
+    filepath_output = paths["dir_final_data"] / "uni_EMFL-select.pkl"
+    dataframe_results.to_pickle(filepath_output)
+    return dataframe_results
+
+
+if __name__ == "__main__":
+    dataframe_results = main()
