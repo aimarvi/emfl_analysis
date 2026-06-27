@@ -1,5 +1,6 @@
 # files related to local setup
 .*DS*
+.agents/
 nohup.out
 misc
 
