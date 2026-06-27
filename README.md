@@ -77,80 +77,6 @@ The main code-to-paper mapping is:
   - `python_analysis/corr_utils.py`
   - `python_analysis/correlation.py`
 
-## Intended Code Organization
-
-The repository should be organized around three clear layers.
-
-### `scripts/`
-
-`scripts/` is the execution layer. It should stay self-contained and remain the main place a user starts when running the pipeline.
-
-Recommended structure:
-
-```text
-scripts/
-  startup.m
-
-  first_level/
-    prep_analysis_final.m
-    make_L2_final.m
-    block_analysis_final.m
-
-  parceling/
-    parcel_transform_final.m
-    volume_parcels.m
-    surface_parcels.m
-
-  revisions/
-    prep_analysis_revision.m
-    block_analysis_revision.m
-    prep_analysis_splitruns.m
-
-  utilities/
-    dist_paras.sh
-```
-
-### `matlab_analysis/`
-
-Recommended structure:
-
-```text
-matlab_analysis/
-  surface_viz/
-    plot_surface_maps.m
-    get_surface_maps.m
-    read_freesurfer_brain.m
-    plot_mesh_brain.m
-    paint_mesh.m
-
-  behavioral/
-    plot_behavioral_data.m
-```
-
-### `python_analysis/`
-
-Recommended structure:
-
-```text
-python_analysis/
-  emfl_analysis/
-    io/
-      gen_utils.py
-
-    metrics/
-      corr_utils.py
-
-    paper/
-      effect_size.py
-      collect_anova.py
-      perform_anova.py
-      dice.py
-      correlation.py
-      count_sig_voxels.py
-      unimodal.py
-      growing_window.py
-```
-
 ## Notes
 
 This repository assumes:
@@ -163,3 +89,23 @@ This repository assumes:
 ## Publication Materials
 
 `PUBLICATION/` contains the paper text and extracted publication assets used to map analyses in this repository back to the final paper.
+
+## Citation
+
+If you found this repository or data useful, please cite:
+
+```
+@article{marvi_efficient_2025,
+	title = {An efficient multifunction {fMRI} localizer for high-level visual, auditory, and cognitive regions in humans},
+	volume = {3},
+	issn = {2837-6056},
+	url = {https://direct.mit.edu/imag/article/doi/10.1162/IMAG.a.905/133159/An-efficient-multifunction-fMRI-localizer-for-high},
+	doi = {10.1162/IMAG.a.905},
+	language = {en},
+	urldate = {2026-06-27},
+	journal = {Imaging Neuroscience},
+	author = {Marvi, Ammar I. and Hutchinson, Sam and Fedorenko, Evelina and Saxe, Rebecca R. and Kamps, Frederik S. and Regev, Tamar I. and Chen, Emily M. and Kanwisher, Nancy G.},
+	month = oct,
+	year = {2025},
+}
+```
