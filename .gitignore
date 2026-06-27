@@ -1,8 +1,15 @@
 # files related to local setup
 .*DS*
+.agents/
 nohup.out
 misc
 
 # in case you unzip all the parcels
 PARCELS
 scripts/PARCELS
+
+# images
+*.jpg
+*.jpeg
+*.png
+*.gif

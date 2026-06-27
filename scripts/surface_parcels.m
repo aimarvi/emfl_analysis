@@ -1,201 +1,184 @@
-% requires first running volume_parcels.m
-% surface parcels are a transformed version of the native volume parcels
-%
-% move all parcels to the surface
-% julian, vwfa, language, ToM, MD parcels
-% Last Edit: amarvi 04/17/2025
-% 
-% args: 
-%     subjname (str): subject name
-% 
-% returns:
-%     none
+% move native-space parcels onto the cortical surface.
+% run volume_parcels.m first.
 
-
-%%% this is all you need to change (hopefully) %%%
 function surface_parcels(subjname)
 
-SUBJECTS_DIR = '/mindhive/nklab5/projects/efficient_localizer/recons/';
-setenv('SUBJECTS_DIR',SUBJECTS_DIR);
+paths = emfl_paths();
+SUBJECTS_DIR = paths.recons_dir;
+setenv('SUBJECTS_DIR', SUBJECTS_DIR);
 
-% path to your project directory (specifically the ./recons folder)
-SUBJECTS_DIR = '/XXX/recons/';
-setenv('SUBJECTS_DIR',SUBJECTS_DIR);
-
-srcParcelDir = 'PARCELS/';
+srcParcelDir = paths.parcels_dir;
 hemis = {'lh', 'rh'};
 
-dJP = dir([srcParcelDir 'julian/*.nii.gz']);
-dLang = dir([srcParcelDir 'language/.nii.gz']);
-dSpeech = dir([srcParcelDir 'speech/*.nii.gz']);
-dToM = dir([srcParcelDir 'tom/*.nii.gz']);
-dVWFA = dir([srcParcelDir 'vwfa/*.nii.gz']);
-dMD = dir([srcParcelDir 'md/*.nii.gz']);
+dJP = dir(fullfile(srcParcelDir, 'julian', '*.nii.gz'));
+dLang = dir(fullfile(srcParcelDir, 'language', '*.nii.gz'));
+dSpeech = dir(fullfile(srcParcelDir, 'speech', '*.nii.gz'));
+dToM = dir(fullfile(srcParcelDir, 'tom', '*.nii.gz'));
+dVWFA = dir(fullfile(srcParcelDir, 'vwfa', '*.nii.gz'));
+dMD = dir(fullfile(srcParcelDir, 'md', '*.nii.gz'));
 
 fprintf('subject: %s\n', subjname);
 
-logDir = [SUBJECTS_DIR '../data_analysis/masks/surf/' subjname '/log/']; mkdir(logDir);
-diaryname = ['parcelize_' subjname '.txt'];
-diary([logDir diaryname]);
+logDir = fullfile(paths.data_analysis_dir, 'masks', 'surf', subjname, 'log');
+mkdir(logDir);
+diary(fullfile(logDir, ['parcelize_' subjname '.txt']));
 
 %% julian parcels
-outdir = [SUBJECTS_DIR '../data_analysis/masks/surf/' ...
-    subjname '/julian/']; mkdir(outdir);
-tform_dir = [SUBJECTS_DIR '../data_analysis/subj2cvs_tform/' ...
-    subjname '/final_CVSmorph_tocvs_avg35.m3z'];
+outdir = fullfile(paths.data_analysis_dir, 'masks', 'surf', subjname, 'julian');
+mkdir(outdir);
+tform_dir = fullfile(paths.data_analysis_dir, 'subj2cvs_tform', subjname, 'final_CVSmorph_tocvs_avg35.m3z');
 
-% Transform parcel from CVS volume to subject's anatomial volume
 for did = 1:length(dJP)
     parcel = dJP(did).name;
     pnames = split(parcel, '.');
 
-    anatParcelName = [outdir pnames(1) '.' pnames(2) '.anat.nii.gz'];
-    funcParcelName = [outdir pnames(1) '.' pnames(2) '.func.nii.gz'];
+    anatParcelName = fullfile(outdir, [pnames{1} '.' pnames{2} '.anat.nii.gz']);
+    funcParcelName = fullfile(outdir, [pnames{1} '.' pnames{2} '.func.nii.gz']);
+    filepath_source = fullfile(srcParcelDir, 'julian', parcel);
 
-    cmd = ['mri_vol2vol --noDefM3zPath'...
-        ' --mov ' SUBJECTS_DIR subjname '/mri/orig.mgz'...
-        ' --targ ' srcParcelDir 'julian/' parcel ...
+    cmd = ['mri_vol2vol --noDefM3zPath' ...
+        ' --mov ' fullfile(SUBJECTS_DIR, subjname, 'mri', 'orig.mgz') ...
+        ' --targ ' filepath_source ...
         ' --m3z ' tform_dir ...
         ' --o ' anatParcelName ...
         ' --nearest' ...
         ' --inv-morph'];
     unix(cmd);
 
-    % Transform parcels from the subject's anatomical volume to the subject's functional volume
-    cmd = ['mri_vol2surf --regheader ' subjname ' --hemi ' pnames(1) ' --mov ' anatParcelName ...
+    cmd = ['mri_vol2surf --regheader ' subjname ...
+        ' --hemi ' pnames{1} ...
+        ' --mov ' anatParcelName ...
         ' --surf-fwhm 1 --o ' funcParcelName];
     unix(cmd);
 end
 
 %% vwfa parcels
-% only does left hemisphere
-outdir = [SUBJECTS_DIR '../data_analysis/masks/surf/' ...
-   subjname '/vwfa/']; mkdir(outdir);
-tform_dir = [SUBJECTS_DIR '../data_analysis/subj2cvsmni152_tform/' ...
-   subjname '/final_CVSmorph_tocvs_avg35_inMNI152.m3z'];
+outdir = fullfile(paths.data_analysis_dir, 'masks', 'surf', subjname, 'vwfa');
+mkdir(outdir);
+tform_dir = fullfile(paths.data_analysis_dir, 'subj2cvsmni152_tform', subjname, 'final_CVSmorph_tocvs_avg35_inMNI152.m3z');
 
 for did = 1:length(dVWFA)
     parcel = dVWFA(did).name;
     pnames = split(parcel, '.');
 
-    anatParcelName = [outdir pnames(1) '.' pnames(2) '.anat.nii.gz'];
-    funcParcelName = [outdir pnames(1) '.' pnames(2) '.func.nii.gz'];
- 
-    % Transform parcel from CVS-MNI152 volume to subject's anatomial volume
-    cmd = ['mri_vol2vol --noDefM3zPath'...
-        ' --mov ' SUBJECTS_DIR subjname '/mri/orig.mgz'...
-        ' --targ ' srcParcelDir parcel ...
+    anatParcelName = fullfile(outdir, [pnames{1} '.' pnames{2} '.anat.nii.gz']);
+    funcParcelName = fullfile(outdir, [pnames{1} '.' pnames{2} '.func.nii.gz']);
+    filepath_source = fullfile(srcParcelDir, 'vwfa', parcel);
+
+    cmd = ['mri_vol2vol --noDefM3zPath' ...
+        ' --mov ' fullfile(SUBJECTS_DIR, subjname, 'mri', 'orig.mgz') ...
+        ' --targ ' filepath_source ...
         ' --m3z ' tform_dir ...
         ' --o ' anatParcelName ...
         ' --nearest' ...
         ' --inv-morph'];
-    unix(cmd)
+    unix(cmd);
 
-    % Transform parcels from the subject's anatomical volume to the subject's functional volume
-    cmd = ['mri_vol2surf --regheader ' subjname ' --hemi' pnames(1) ' --mov ' anatParcelName ...
+    cmd = ['mri_vol2surf --regheader ' subjname ...
+        ' --hemi ' pnames{1} ...
+        ' --mov ' anatParcelName ...
         ' --surf-fwhm 1 --o ' funcParcelName];
     unix(cmd);
 end
 
-%% MD parcels
-outdir = [SUBJECTS_DIR '../data_analysis/masks/surf/' ...
-   subjname '/md/']; mkdir(outdir);
+%% md parcels
+outdir = fullfile(paths.data_analysis_dir, 'masks', 'surf', subjname, 'md');
+mkdir(outdir);
 
 for did = 1:length(dMD)
     parcel = dMD(did).name;
     pnames = split(parcel, '.');
 
-    if strcmp(pnames(1), 'all')
+    if strcmp(pnames{1}, 'all')
         continue
     end
 
-    anatParcelName = [outdir pnames(1) '.' pnames(2) '.anat.nii.gz'];
-    funcParcelName = [outdir pnames(1) '.' pnames(2) '.func.nii.gz'];
+    anatParcelName = fullfile(outdir, [pnames{1} '.' pnames{2} '.anat.nii.gz']);
+    funcParcelName = fullfile(outdir, [pnames{1} '.' pnames{2} '.func.nii.gz']);
+    filepath_source = fullfile(srcParcelDir, 'md', parcel);
 
-    % Transform parcel from CVS-MNI152 volume to subject's anatomial volume
-    cmd = ['mri_vol2vol --noDefM3zPath'...
-      ' --mov ' SUBJECTS_DIR subjname '/mri/orig.mgz'...
-      ' --targ ' srcParcelDir 'md/' parcel ...
-      ' --m3z ' tform_dir ...
-      ' --o ' anatParcelName ...
-      ' --nearest' ...
-      ' --inv-morph'];
-    unix(cmd)
-
-    % Transform parcels from the subject's anatomical volume to the subject's functional volume
-    cmd = ['mri_vol2surf --regheader ' subjname ' --hemi ' pnames(1) ' --mov ' anatParcelName ...
-       ' --surf-fwhm 1 --o ' funcParcelName];
+    cmd = ['mri_vol2vol --noDefM3zPath' ...
+        ' --mov ' fullfile(SUBJECTS_DIR, subjname, 'mri', 'orig.mgz') ...
+        ' --targ ' filepath_source ...
+        ' --m3z ' tform_dir ...
+        ' --o ' anatParcelName ...
+        ' --nearest' ...
+        ' --inv-morph'];
     unix(cmd);
-end
 
-%% language parcels
-voldir = [SUBJECTS_DIR '/../data_analysis/masks/vols/' ...
-   subjname '/language/'];
-outdir = [SUBJECTS_DIR '/../data_analysis/masks/surf/' ...
-   subjname '/language/']; mkdir(outdir);
-
-% convert the fsavg space parcel to subject space
-for did = 1:length(dLang)
-    parcel = dLang(did).name;
-    pnames = strtok(parcel, '.');
-
-    if strcmp(pnames(1), 'all')
-        continue
-    end
-
-    funcParcelName = [outdir pnames(1) '.' pnames(2) '.func.nii.gz'];
-
-    % Transform parcels from the subject's anatomical volume to the subject's functional volume
-    cmd = ['mri_vol2surf --regheader ' subjname ' --hemi ' pnames(1) ' --mov ' voldir parcel ...
+    cmd = ['mri_vol2surf --regheader ' subjname ...
+        ' --hemi ' pnames{1} ...
+        ' --mov ' anatParcelName ...
         ' --surf-fwhm 1 --o ' funcParcelName];
     unix(cmd);
 end
 
-%% ToM parcels
-voldir = [SUBJECTS_DIR '/../data_analysis/masks/vols/' ...
-   subjname '/tom/'];
-outdir = [SUBJECTS_DIR '/../data_analysis/masks/surf/' ...
-   subjname '/tom/']; mkdir(outdir);
+%% language parcels
+voldir = fullfile(paths.data_analysis_dir, 'masks', 'vols', subjname, 'language');
+outdir = fullfile(paths.data_analysis_dir, 'masks', 'surf', subjname, 'language');
+mkdir(outdir);
 
-% use the transformation to bring the ToM parcels to subject functional space
-% convert the fsavg space parcel to subject space
+for did = 1:length(dLang)
+    parcel = dLang(did).name;
+    pnames = split(parcel, '.');
+
+    if strcmp(pnames{1}, 'all')
+        continue
+    end
+
+    funcParcelName = fullfile(outdir, [pnames{1} '.' pnames{2} '.func.nii.gz']);
+
+    cmd = ['mri_vol2surf --regheader ' subjname ...
+        ' --hemi ' pnames{1} ...
+        ' --mov ' fullfile(voldir, parcel) ...
+        ' --surf-fwhm 1 --o ' funcParcelName];
+    unix(cmd);
+end
+
+%% tom parcels
+voldir = fullfile(paths.data_analysis_dir, 'masks', 'vols', subjname, 'tom');
+outdir = fullfile(paths.data_analysis_dir, 'masks', 'surf', subjname, 'tom');
+mkdir(outdir);
+
 for did = 1:length(dToM)
     parcel = dToM(did).name;
     pnames = split(parcel, '.');
- 
-    if contains(pnames(1), 'h')
-        funcParcelName = [outdir pnames(1) '.' pnames(2) '.func.nii.gz'];  
-        % Transform parcels from the subject's anatomical volume to the subject's functional volume
-        cmd = ['mri_vol2surf --regheader ' subjname ' --hemi ' pnames(1) ' --mov ' voldir parcel ...
+
+    if contains(pnames{1}, 'h')
+        funcParcelName = fullfile(outdir, [pnames{1} '.' pnames{2} '.func.nii.gz']);
+        cmd = ['mri_vol2surf --regheader ' subjname ...
+            ' --hemi ' pnames{1} ...
+            ' --mov ' fullfile(voldir, parcel) ...
             ' --surf-fwhm 1 --o ' funcParcelName];
         unix(cmd);
     else
         for hid = 1:length(hemis)
             hemi = hemis{hid};
-            funcParcelName = [outdir hemi '.' pnames(2) '.func.nii.gz'];
-            % Transform parcels from the subject's anatomical volume to the subject's functional volume
-            cmd = ['mri_vol2surf --regheader ' subjname ' --hemi ' hemi ' --mov ' voldir parcel ...
+            funcParcelName = fullfile(outdir, [hemi '.' pnames{2} '.func.nii.gz']);
+            cmd = ['mri_vol2surf --regheader ' subjname ...
+                ' --hemi ' hemi ...
+                ' --mov ' fullfile(voldir, parcel) ...
                 ' --surf-fwhm 1 --o ' funcParcelName];
             unix(cmd);
         end
     end
 end
 
-voldir = [SUBJECTS_DIR '/../data_analysis/masks/vols/' ...
-   subjname '/speech/'];
-outdir = [SUBJECTS_DIR '/../data_analysis/masks/surf/' ...
-   subjname '/speech/']; mkdir(outdir);
+%% speech parcels
+voldir = fullfile(paths.data_analysis_dir, 'masks', 'vols', subjname, 'speech');
+outdir = fullfile(paths.data_analysis_dir, 'masks', 'surf', subjname, 'speech');
+mkdir(outdir);
 
-% Transform parcel from CVS volume to subject's anatomial volume
 for did = 1:length(dSpeech)
     parcel = dSpeech(did).name;
     pnames = split(parcel, '.');
 
     for hid = 1:length(hemis)
         hemi = hemis{hid};
-        funcParcelName = [outdir hemi '.' pnames(2) '.func.nii.gz'];
-        % Transform parcels from the subject's anatomical volume to the subject's functional volume
-        cmd = ['mri_vol2surf --regheader ' subjname ' --hemi ' hemi ' --mov ' voldir parcel ...
+        funcParcelName = fullfile(outdir, [hemi '.' pnames{2} '.func.nii.gz']);
+        cmd = ['mri_vol2surf --regheader ' subjname ...
+            ' --hemi ' hemi ...
+            ' --mov ' fullfile(voldir, parcel) ...
             ' --surf-fwhm 1 --o ' funcParcelName];
         unix(cmd);
     end
@@ -204,4 +187,3 @@ end
 diary off
 
 end
-                                                                                                                          

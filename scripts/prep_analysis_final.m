@@ -1,53 +1,42 @@
-%% fMRI Block Design Analysis
-% Efficient Multifunction fMRI Localizer
+%% fmri block design analysis
+% efficient multifunction fmri localizer
 % @samhutch @amarvi 02/27/2025 
 
-%% Set analysis parameters
-% 
-% args:
-%     subj_id (str): subject name 
-%     exp_name(str): localizer name (see below for full list)
-% 
-% returns:
-%     none
+%% set analysis parameters
+% set subject- and experiment-specific analysis inputs.
+% keeps the contrasts spelled out.
 
 function prep_analysis_final(subj_id, exp_name)
 
-% EMFL runs as listed in scanning protocol
+% emfl runs as listed in the scanning protocol
 run_ids = [7,8,9,10,11];
 
-% dir housing all .dcm files
+% directory housing the raw dicoms
 dicom_name = 'dicom';
 
-% including fixation (for EMFL visual: 5+1=6)
+% number of conditions including fixation
 num_conditions = 6;
 
-% in seconds
+% block duration in seconds
 block_length = 22;
 
-% fwhm smoothing (mm)
+% smoothing kernel in mm
 smoothing = '3';
 
-% temporal resolution (sec)
+% tr in seconds
 TR = 2.0;
 
 % paradigm file naming convention
 para_stem = [subj_id '_'];
 para_ext = ['_' exp_name '.para'];
 
-%% Define contrasts (based on para files)
-% EMFL exp names:
-%     vis: visual conditions (faces, scenes, bodies, objects, words)
-%     aud: auditory conditions (false belief, false photo, nonwords, quilted audio, arithmetic)
-%     audHalf: half-block analysis for Theory of Mind regions (false belief, false photo)
-% OTHER:
-%     foss: Epstein & Kanwisher (1998)
-%     langloc: Fedorenko et al (2010)
-%     eploc: Jacoby et al (2016) 
-%     spwm: Fedorenko et al (2013)
-%     speechloc: speech localizer
-%     ebavwfa: EBA & VWFA localizer
-%     towerloc: Fischer et al (2016)
+%% define contrasts
+% emfl:
+%     vis: faces, scenes, bodies, objects, words
+%     aud: false belief, false photo, nonwords, quilted audio, arithmetic
+%     audHalf: half-block theory of mind check
+% standard localizers:
+%     foss, langloc, eploc, spwm, speechloc, ebavwfa, towerloc
 
 c = 0;
 c = c+1; contrast.names{c} = ['All-Fix']; contrast.cidleft{c} = [1:5]; contrast.cidright{c} = [0];
@@ -108,7 +97,7 @@ elseif strcmp(exp_name, 'towerloc')
     run_ids = [1]; % !!
 end
  
-%% Flags for analysis
+%% analysis switches
 do_volume = 1;
 do_surface = 1;
 unpack = 1;
@@ -117,7 +106,7 @@ make_analysis = 1;
 do_selxavg = 1;
 do_glmSingle = 0;
 
-%% Run the commands!
+%% run the pipeline
 clc;
 make_L2_final(subj_id, run_ids, dicom_name, exp_name, num_conditions, block_length, contrast, TR);
 block_analysis_final(subj_id, exp_name, unpack, do_preproc, make_analysis, do_selxavg, ...

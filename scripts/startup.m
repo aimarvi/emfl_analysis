@@ -1,8 +1,5 @@
-% borrowed from @ratan
-% last update @amarvi 03/17/2025
-% startup file run by MATLAB on initialization
-% required for setting paths for FS-FAST toolbox
-% set $FREESURFER_HOME and $FSFAST_HOME environment variables in shell prior to analysis
+% matlab startup hook for freesurfer and fs-fast.
+% require these environment variables before running the pipeline.
 
 %------------ FreeSurfer -----------------------------%
 fshome = getenv('FREESURFER_HOME');

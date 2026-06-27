@@ -1,176 +1,111 @@
-function [] = block_analysis_final(subj_id,exp_name, unpackFlag, preprocFlag,makeAnalysisFlag,...
+function [] = block_analysis_final(subj_id, exp_name, unpackFlag, preprocFlag, makeAnalysisFlag, ...
     runAnalysisFlag, glmSingleFlag, volumeFlag, surfaceFlag, smoothing, para_stem, para_ext)
-%% fMRI Block Design Analysis
-% Efficient Localizer
-% called by prep_analysis_final() for standard fMRI analysis
-% 
-% args:
-%     subj_id (str): subject name
-%     exp_name (str): localizer name (eg. 'vis', 'aud')
-%     flags (int): [0,1]
-%         unpack: unpack dicoms
-%     preproc: apply standard preprocessing steps
-%         makeAnalysis: set up the analysis parameters
-%         runAnalysis: run the actual analysis using the FS-FAST pipeline
-%         glmSingle: run the actual analysis using the GLMsingle pipeline
-%         volume: run the analysis in volume space
-%         surface: run the analysis in surface space
-%     smoothing (int): full-width half-maximum smoothing to apply to the data (in mm)
-%     para_stem (str): prefix of paradigm file name before the run number (eg. '{subj_id}_run')
-%     para_ext (str): suffix of paradigm file name after the run number, including file extension (eg. '_{exp_name}.para')
+%% fmri block design analysis
+% main fs-fast workflow for one subject and one localizer.
+% called by prep_analysis_final().
 
-%% Setup
+%% setup
 
-%get project directory
-cd ..
-project_dir = pwd;
-cd ./scripts
+paths = emfl_paths();
+filepath_l2 = fullfile(paths.analysis_dir, ['L2_' subj_id '.mat']);
+load(filepath_l2, 'L2');
+fprintf('L2 structure loaded successfully.\n');
 
-%Load L2
-eval(['load ' project_dir '/analysis/L2_' subj_id '.mat;']);
-fprintf ('L2 structure loaded successfully... \n');
+mkdir(fullfile(L2.(exp_name).functional_dir, 'bold'));
+write_subject_name_file(subj_id, L2.(exp_name).functional_dir);
 
-%Create directories
-unix(['mkdir -p ' L2.(exp_name).functional_dir '/bold/'])
+%% unpack dicoms
 
-%Create subj_id file (overwrites existing)
-unix(['echo ' subj_id ' > ' L2.(exp_name).functional_dir '/subjectname'])
+if unpackFlag
+    sourcefolder = fullfile(L2.(exp_name).dicoms_dir, L2.(exp_name).dicom_name);
+    targetfolder = fullfile(L2.(exp_name).project_dir, ['vols_' exp_name], subj_id);
+    run_ids = L2.(exp_name).run_ids;
 
-%% Unpack
-
-if (unpackFlag)
-    subjname = subj_id;
-    dicomname = L2.(exp_name).dicom_name;
-    
-    projectdir = L2.(exp_name).project_dir;
-    localiserids = {exp_name};
-    functionalruns{1} = L2.(exp_name).run_ids;
-    
-    sourcefolder = [L2.(exp_name).dicoms_dir '/' dicomname];
-    
-    for funcid = 1:length(localiserids)
-        fprintf('Unpacking all the functional scans from %s\n', localiserids{funcid});
-        targetfoldername = [projectdir '/vols_' localiserids{funcid} '/' subjname '/'];
-        funcruns = functionalruns{funcid};
-        
-        unpackstring = ['unpacksdcmdir -src ' sourcefolder ... 
-                              ' -targ ' targetfoldername];
-        c = 0;
-        for runid = 1:length(funcruns)
-            c= c+1; string{c} = [unpackstring ' -run ' num2str(funcruns(runid)) ' bold nii f.nii.gz'];
-        end
-        
-        for cid = 1:length(string)
-            torun = string{cid};
-            fprintf('Executing: %s \n',torun);
-            unix(torun);
-        end
-        
-        fprintf('Unpack successful: Copy over para files to the folders \n'); 
-
-        pause(1);
+    fprintf('Unpacking functional runs for %s.\n', exp_name);
+    for runid = 1:length(run_ids)
+        cmd = ['unpacksdcmdir -src ' sourcefolder ...
+            ' -targ ' targetfolder ...
+            ' -run ' num2str(run_ids(runid)) ...
+            ' bold nii f.nii.gz'];
+        fprintf('Executing: %s\n', cmd);
+        unix(cmd);
     end
+
+    fprintf('unpack finished.\n');
+    pause(1);
 end
 
-%% do preprocessing
-if(preprocFlag)
-    fprintf('\n\nPreprocessing data \n\n');
+%% preprocessing
+
+if preprocFlag
+    fprintf('\nPreprocessing data.\n\n');
     unix(['preproc-sess -s ' subj_id ...
-                       ' -d ' L2.(exp_name).functional_dir '/..' ...
-                       ' -per-run' ...
-                       ' -fsd bold -fwhm ' smoothing ...
-                       ' -force'])
+        ' -d ' fullfile(L2.(exp_name).functional_dir, '..') ...
+        ' -per-run' ...
+        ' -fsd bold -fwhm ' smoothing ...
+        ' -force']);
 
-    fprintf('\n\nTransforming data to Anatomical \n\n');
-    
-    if(~exist('smoothing'))
-        smoothing = '0'; 
+    fprintf('\nTransforming data to anatomical space.\n\n');
+    if isempty(smoothing)
+        smoothing = '0';
     end
-    
-    for r=1:length(L2.(exp_name).run_ids)
-        unix(['mri_vol2vol --reg ' L2.(exp_name).functional_dir '/bold/' sprintf('%03d',L2.(exp_name).run_ids(r)) '/' ...
-              'register.dof6.lta '...
-              '--mov '  L2.(exp_name).functional_dir '/bold/' sprintf('%03d',L2.(exp_name).run_ids(r)) '/fmcpr.sm' smoothing '.nii.gz ' ...
-              '--fstarg '...
-              '--no-resample '...
-              '--o ' L2.(exp_name).functional_dir '/bold/' sprintf('%03d',L2.(exp_name).run_ids(r)) '/fmcpr_reg.sm' smoothing '.nii.gz '...
-              ]);
+
+    for r = 1:length(L2.(exp_name).run_ids)
+        run_dir = fullfile(L2.(exp_name).functional_dir, 'bold', sprintf('%03d', L2.(exp_name).run_ids(r)));
+        cmd = ['mri_vol2vol --reg ' fullfile(run_dir, 'register.dof6.lta') ...
+            ' --mov ' fullfile(run_dir, ['fmcpr.sm' smoothing '.nii.gz']) ...
+            ' --fstarg' ...
+            ' --no-resample' ...
+            ' --o ' fullfile(run_dir, ['fmcpr_reg.sm' smoothing '.nii.gz'])];
+        unix(cmd);
     end
-    
 else
-    fprintf('\n\nSkipping preprocessing steps... \n\n');
+    fprintf('\nSkipping preprocessing.\n\n');
 end
 
-%copy para files and make run list files
-fprintf ('Copying para files...\n');
-for r=1:length(L2.(exp_name).run_ids)
-    unix(['rsync -av ' L2.(exp_name).paras_dir '/' subj_id '/' para_stem num2str(r) para_ext ' '...
-    L2.(exp_name).functional_dir '/bold/' sprintf('%03d',L2.(exp_name).run_ids(r)) '/' exp_name '.para'])
-end
+%% copy para files and create run lists
 
-fprintf ('Creating RunListFiles...\n');
-unix(['rm -f ' L2.(exp_name).functional_dir '/bold/*.rlf'])
-for r=1:length(L2.(exp_name).run_ids)
-    if rem(r,2)==0 %if even
-        unix(['echo ' sprintf('%03d',L2.(exp_name).run_ids(r)) ' >> ' L2.(exp_name).functional_dir '/bold/' exp_name '_all.rlf'])
-        unix(['echo ' sprintf('%03d',L2.(exp_name).run_ids(r)) ' >> ' L2.(exp_name).functional_dir '/bold/' exp_name '_even.rlf'])
-    else  %if odd
-        unix(['echo ' sprintf('%03d',L2.(exp_name).run_ids(r)) ' >> ' L2.(exp_name).functional_dir '/bold/' exp_name '_all.rlf'])
-        unix(['echo ' sprintf('%03d',L2.(exp_name).run_ids(r)) ' >> ' L2.(exp_name).functional_dir '/bold/' exp_name '_odd.rlf'])
-    end
-end
+copy_para_files(L2.(exp_name), subj_id, exp_name, para_stem, para_ext);
+create_runlist_files(L2.(exp_name), exp_name, 'odd_even');
 
-%% make analysis plans
-if(makeAnalysisFlag)
-        
-    if(volumeFlag)
-        splits={'all' 'even' 'odd'};
-        for s=1:length(splits)
-            split=splits{s};
-            
-            %' -nuisreg mcprextreg ' int2str(num_ext_regs)...
-            unix(['mkanalysis-sess -a ' L2.(exp_name).analysis_dir '/' exp_name '.sm' smoothing '.' split ...
-                ' -native'...
+%% build analysis plans
+
+if makeAnalysisFlag
+    if volumeFlag
+        splits = {'all', 'even', 'odd'};
+        for s = 1:length(splits)
+            split = splits{s};
+            analysisname = [exp_name '.sm' smoothing '.' split];
+
+            unix(['mkanalysis-sess -a ' fullfile(L2.(exp_name).analysis_dir, analysisname) ...
+                ' -native' ...
                 ' -funcstem fmcpr_reg.sm' smoothing ...
                 ' -fsd bold' ...
                 ' -event-related' ...
                 ' -paradigm ' L2.(exp_name).para_name ...
                 ' -nconditions ' num2str(L2.(exp_name).num_conditions) ...
                 ' -refeventdur ' num2str(L2.(exp_name).block_length) ...
-                ' -nuisreg mcprextreg 6'...
-                ' -force'...
+                ' -nuisreg mcprextreg 6' ...
+                ' -force' ...
                 ' -TR ' num2str(L2.(exp_name).TR) ...
                 ' -polyfit 1' ...
                 ' -spmhrf 0' ...
                 ' -runlistfile ' exp_name '_' split '.rlf']);
 
-            for contrastid = 1:length(L2.(exp_name).contrasts.names)
-                analysisname=[exp_name '.sm' smoothing '.' split];
-                contraststring = [' -contrast ' L2.(exp_name).contrasts.names{contrastid}];
-                lids = L2.(exp_name).contrasts.cidleft{contrastid}; 
-                rids = L2.(exp_name).contrasts.cidright{contrastid}; 
-                % The left sides go in first
-                for leftcids = 1:length(lids)
-                    contraststring = [contraststring ' -a ' num2str(lids(leftcids))];
-                end
-                % The right side of the contrasts go next
-                for rightcids = 1:length(rids)
-                    contraststring = [contraststring ' -c ' num2str(rids(rightcids))];
-                end
-                % Add to final string
-                unix(['mkcontrast-sess -analysis ' L2.(exp_name).analysis_dir '/' analysisname contraststring]);
-            end
+            create_contrast_files(L2.(exp_name), analysisname);
         end
     end
 
-    if(surfaceFlag)
-        splits={'all' 'even' 'odd'};
-        hemis={'rh' 'lh'};
-        for h=1:length(hemis)
-            hemi=hemis{h};
-            for s=1:length(splits)
-                split=splits{s};
-                unix(['mkanalysis-sess -a ' L2.(exp_name).analysis_dir '/' exp_name '.sm' smoothing '.' split '.' hemi ...
+    if surfaceFlag
+        splits = {'all', 'even', 'odd'};
+        hemis = {'rh', 'lh'};
+        for h = 1:length(hemis)
+            hemi = hemis{h};
+            for s = 1:length(splits)
+                split = splits{s};
+                analysisname = [exp_name '.sm' smoothing '.' split '.' hemi];
+
+                unix(['mkanalysis-sess -a ' fullfile(L2.(exp_name).analysis_dir, analysisname) ...
                     ' -surface self ' hemi ...
                     ' -fsd bold -fwhm ' smoothing ...
                     ' -event-related' ...
@@ -181,157 +116,201 @@ if(makeAnalysisFlag)
                     ' -TR ' num2str(L2.(exp_name).TR) ...
                     ' -polyfit 1' ...
                     ' -spmhrf 0' ...
-                    ' -mcextreg ' ...
+                    ' -mcextreg' ...
                     ' -runlistfile ' exp_name '_' split '.rlf' ...
-                    ' -per-session'])
+                    ' -per-session']);
 
-                for contrastid = 1:length(L2.(exp_name).contrasts.names)
-                    analysisname=[exp_name '.sm' smoothing '.' split '.' hemi];
-                    contraststring = [' -contrast ' L2.(exp_name).contrasts.names{contrastid}];
-                    lids = L2.(exp_name).contrasts.cidleft{contrastid}; 
-                    rids = L2.(exp_name).contrasts.cidright{contrastid}; 
-                    % The left sides go in first
-                    for leftcids = 1:length(lids)
-                        contraststring = [contraststring ' -a ' num2str(lids(leftcids))];
-                    end
-                    % The right side of the contrasts go next
-                    for rightcids = 1:length(rids)
-                        contraststring = [contraststring ' -c ' num2str(rids(rightcids))];
-                    end
-                    % Add to final string
-                    unix(['mkcontrast-sess -analysis ' L2.(exp_name).analysis_dir '/' analysisname contraststring]);
-                end
+                create_contrast_files(L2.(exp_name), analysisname);
             end
         end
     end
 end
 
-%% run the analyses!!!
-if(runAnalysisFlag)
-    if(volumeFlag)
-        workingDir=pwd;
-        cd(L2.(exp_name).analysis_dir)
-        splits={'all' 'even' 'odd'};
-        for s=1:length(splits)
-            split=splits{s};
-            analysisname=[exp_name '.sm' smoothing '.' split];
-            unix(['selxavg3-sess -s ' subj_id ' -d ' L2.(exp_name).functional_dir '/.. -analysis ' analysisname ' -no-preproc -overwrite'])
+%% run the analyses
+
+if runAnalysisFlag
+    if volumeFlag
+        workingDir = pwd;
+        cd(L2.(exp_name).analysis_dir);
+        splits = {'all', 'even', 'odd'};
+        for s = 1:length(splits)
+            split = splits{s};
+            analysisname = [exp_name '.sm' smoothing '.' split];
+            unix(['selxavg3-sess -s ' subj_id ...
+                ' -d ' fullfile(L2.(exp_name).functional_dir, '..') ...
+                ' -analysis ' analysisname ...
+                ' -no-preproc -overwrite']);
         end
-        cd(workingDir)
+        cd(workingDir);
     end
 
-    if(surfaceFlag)
-        workingDir=pwd;
-        cd(L2.(exp_name).analysis_dir)
-        splits={'all' 'even' 'odd'};
-        hemis={'rh' 'lh'};
-        for h=1:length(hemis)
-            hemi=hemis{h};
-            for s=1:length(splits)
-                split=splits{s};
-                analysisname=[exp_name '.sm' smoothing '.' split '.' hemi];
-                unix(['selxavg3-sess -s ' subj_id ' -d ' L2.(exp_name).functional_dir '/.. -analysis ' analysisname ' -overwrite'])
+    if surfaceFlag
+        workingDir = pwd;
+        cd(L2.(exp_name).analysis_dir);
+        splits = {'all', 'even', 'odd'};
+        hemis = {'rh', 'lh'};
+        for h = 1:length(hemis)
+            hemi = hemis{h};
+            for s = 1:length(splits)
+                split = splits{s};
+                analysisname = [exp_name '.sm' smoothing '.' split '.' hemi];
+                unix(['selxavg3-sess -s ' subj_id ...
+                    ' -d ' fullfile(L2.(exp_name).functional_dir, '..') ...
+                    ' -analysis ' analysisname ...
+                    ' -overwrite']);
             end
         end
-        cd(workingDir)
+        cd(workingDir);
     end
 end
 
-%% GLMsingle!
+%% glmsingle
 
-if (glmSingleFlag)
-    
-    %get necessary functions
-    addpath(genpath('/om2/user/samhutch/GLMsingle'));
-    
-    if (volumeFlag)
-        
-        fprintf('Processing volume data\n');
-        
-        file_name = ['fmcpr.sm' (smoothing) '.nii.gz']; %use motion corrected, smoothed data
+if glmSingleFlag
+    glmSingleDir = getenv('GLMSINGLE_DIR');
+    if isempty(glmSingleDir)
+        error('Set GLMSINGLE_DIR before enabling glmSingleFlag.');
+    end
+    addpath(genpath(glmSingleDir));
+
+    if volumeFlag
+        fprintf('Processing volume data with GLMsingle.\n');
+
+        file_name = ['fmcpr.sm' smoothing '.nii.gz'];
         runs = L2.(exp_name).run_ids;
-        for r=1:length(runs)
-            
-            %read functional data
-            file = [L2.(exp_name).functional_dir '/bold/' num2str(runs(r),'%03d') '/' (file_name)];;
-            data = MRIread(file); %get the .nii.gz file to a format GLMsingle can use
-            data = squeeze(data.vol); %remove unnecessary dimensions
-            run_data{r} = single(data); %reduce to single-precision accuracy and store
-            
-            %read para file -> design matrix
-            para_name = [L2.(exp_name).functional_dir '/bold/' num2str(runs(r),'%03d') '/' (exp_name) '.para'];
+        run_data = cell(1, length(runs));
+        design = cell(1, length(runs));
+
+        for r = 1:length(runs)
+            run_dir = fullfile(L2.(exp_name).functional_dir, 'bold', sprintf('%03d', runs(r)));
+
+            file = fullfile(run_dir, file_name);
+            data = MRIread(file);
+            data = squeeze(data.vol);
+            run_data{r} = single(data);
+
+            para_name = fullfile(run_dir, [exp_name '.para']);
             vars = read_parafile(para_name);
             design{r} = get_design(vars, size(run_data{r}, 4), L2.(exp_name).num_conditions, L2.(exp_name).TR);
-            
         end
-        
-        fprintf('Running GLMsingle on all runs\n');
-        
-        output_dir = [L2.(exp_name).functional_dir '/bold/GLMsingle_results'];
-        unix(['mkdir -p ' output_dir]);
+
+        fprintf('Running GLMsingle on all runs.\n');
+
+        output_dir = fullfile(L2.(exp_name).functional_dir, 'bold', 'GLMsingle_results');
+        mkdir(output_dir);
         stimdur = L2.(exp_name).block_length;
         tr = L2.(exp_name).TR;
-        
+
         [~,~,convmat,cache] = GLMestimatesingletrial(design, run_data, stimdur, tr, output_dir);
-        
-        %save convolved design matrix
-        save([output_dir '/convmat.mat'], 'convmat', '-v7.3');
-        
-        %save a bunch of cached data from model fitting
-        save([output_dir '/cache.mat'], 'cache', '-v7.3');
-        
-        %load betas for further analysis
-        modelD = load([output_dir '/TYPED_FITHRF_GLMDENOISE_RR.mat']);
+
+        save(fullfile(output_dir, 'convmat.mat'), 'convmat', '-v7.3');
+        save(fullfile(output_dir, 'cache.mat'), 'cache', '-v7.3');
+
+        modelD = load(fullfile(output_dir, 'TYPED_FITHRF_GLMDENOISE_RR.mat'));
         betasD = modelD.modelmd;
-        
-        modelC = load([output_dir '/TYPEC_FITHRF_GLMDENOISE.mat']);
+
+        modelC = load(fullfile(output_dir, 'TYPEC_FITHRF_GLMDENOISE.mat'));
         betasC = modelC.modelmd;
-        
-        save([output_dir '/betas_trialsD.mat'], 'betasD', '-v7.3');
-        save([output_dir '/betas_trialsC.mat'], 'betasC', '-v7.3');
-        
-        %THE FOLLOWING BETA-REARRANGEMENT IS FROM
-        %https://htmlpreview.github.io/?https://github.com/kendrickkay/GLMsingle/blob/main/matlab/examples/example2preview/example2.html
-        
-        %find where each condition is in the design
-        design_concat = cat(1,design{:});
+
+        save(fullfile(output_dir, 'betas_trialsD.mat'), 'betasD', '-v7.3');
+        save(fullfile(output_dir, 'betas_trialsC.mat'), 'betasC', '-v7.3');
+
+        % reorder the betas by condition.
+        design_concat = cat(1, design{:});
         cond_order = [];
-        for p=1:size(design_concat,1)
-            if any(design_concat(p,:))
-                cond_order = [cond_order find(design_concat(p,:))];
+        for p = 1:size(design_concat, 1)
+            if any(design_concat(p, :))
+                cond_order = [cond_order find(design_concat(p, :))];
             end
         end
-        
-        %reorganize betas as X x Y x Z x Trials x Conditions
+
         x = size(betasD, 1);
         y = size(betasD, 2);
         z = size(betasD, 3);
         num_conditions = size(design{1}, 2);
-        num_trials = size(betasD, 4)/num_conditions;
-        
+        num_trials = size(betasD, 4) / num_conditions;
+
         new_betasD = nan(x, y, z, num_trials, num_conditions);
         new_betasC = nan(x, y, z, num_trials, num_conditions);
-        
-        for c=1:L2.(exp_name).num_conditions
-            fprintf('Condition %i was repeated %i times, with GLMsingle betas at the following indices:\n',c, length(find(cond_order==1)));
-            indicies = find(cond_order==c);
-            
-            cond_betasD = betasD(:,:,:,indicies);
+
+        for c = 1:L2.(exp_name).num_conditions
+            fprintf('Condition %i was repeated %i times.\n', c, length(find(cond_order == c)));
+            indices = find(cond_order == c);
+
+            cond_betasD = betasD(:,:,:,indices);
             new_betasD(:,:,:,:,c) = cond_betasD;
-            
-            cond_betasC = betasC(:,:,:,indicies);
+
+            cond_betasC = betasC(:,:,:,indices);
             new_betasC(:,:,:,:,c) = cond_betasC;
         end
-        
-        save([output_dir '/betas_conditionsD.mat'], 'new_betasD', '-v7.3');
-        save([output_dir '/betas_conditionsC.mat'], 'new_betasC', '-v7.3');
-        
+
+        save(fullfile(output_dir, 'betas_conditionsD.mat'), 'new_betasD', '-v7.3');
+        save(fullfile(output_dir, 'betas_conditionsC.mat'), 'new_betasC', '-v7.3');
     end
-    
-    if (surfaceFlag)
-        
-    end
-    
 end
 
+end
+
+function write_subject_name_file(subj_id, functional_dir)
+filepath_subjectname = fullfile(functional_dir, 'subjectname');
+fid = fopen(filepath_subjectname, 'w');
+fprintf(fid, '%s\n', subj_id);
+fclose(fid);
+end
+
+function copy_para_files(L2_exp, subj_id, exp_name, para_stem, para_ext)
+fprintf('Copying para files.\n');
+for r = 1:length(L2_exp.run_ids)
+    filepath_source = fullfile(L2_exp.paras_dir, subj_id, [para_stem num2str(r) para_ext]);
+    filepath_target = fullfile(L2_exp.functional_dir, 'bold', sprintf('%03d', L2_exp.run_ids(r)), [exp_name '.para']);
+    unix(['rsync -av ' filepath_source ' ' filepath_target]);
+end
+end
+
+function create_runlist_files(L2_exp, exp_name, split_mode)
+fprintf('Creating run list files.\n');
+unix(['rm -f ' fullfile(L2_exp.functional_dir, 'bold', '*.rlf')]);
+
+for r = 1:length(L2_exp.run_ids)
+    run_label = sprintf('%03d', L2_exp.run_ids(r));
+    filepath_all = fullfile(L2_exp.functional_dir, 'bold', [exp_name '_all.rlf']);
+    append_run_label(filepath_all, run_label);
+
+    if strcmp(split_mode, 'odd_even')
+        if rem(r, 2) == 0
+            filepath_split = fullfile(L2_exp.functional_dir, 'bold', [exp_name '_even.rlf']);
+        else
+            filepath_split = fullfile(L2_exp.functional_dir, 'bold', [exp_name '_odd.rlf']);
+        end
+    else
+        error('Unknown split mode: %s', split_mode);
+    end
+
+    append_run_label(filepath_split, run_label);
+end
+end
+
+function append_run_label(filepath_rlf, run_label)
+fid = fopen(filepath_rlf, 'a');
+fprintf(fid, '%s\n', run_label);
+fclose(fid);
+end
+
+function create_contrast_files(L2_exp, analysisname)
+for contrastid = 1:length(L2_exp.contrasts.names)
+    contraststring = [' -contrast ' L2_exp.contrasts.names{contrastid}];
+    lids = L2_exp.contrasts.cidleft{contrastid};
+    rids = L2_exp.contrasts.cidright{contrastid};
+
+    % write left-side contrast terms first.
+    for leftcids = 1:length(lids)
+        contraststring = [contraststring ' -a ' num2str(lids(leftcids))];
+    end
+
+    for rightcids = 1:length(rids)
+        contraststring = [contraststring ' -c ' num2str(rids(rightcids))];
+    end
+
+    unix(['mkcontrast-sess -analysis ' fullfile(L2_exp.analysis_dir, analysisname) contraststring]);
+end
 end

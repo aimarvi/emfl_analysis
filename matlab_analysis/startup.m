@@ -1,4 +1,6 @@
-fprintf('Testing\n');
+% matlab startup hook for freesurfer and fs-fast.
+% require these environment variables before running the pipeline.
+
 %------------ FreeSurfer -----------------------------%
 fshome = getenv('FREESURFER_HOME');
 fsmatlab = sprintf('%s/matlab',fshome);

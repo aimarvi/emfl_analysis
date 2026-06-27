@@ -1,70 +1,60 @@
-% transform subjects to cvs, mni152, and fsavg space
-% required before getting parcellations for each subject (julian, language, ToM, vwfa, speech, physics, md)
-% 
-% after all 3 runs are finished, you can run volume_parcels.m
-% 
-% Created by: @amarvi 
-% Last edit: 03/11/2025
-% 
-% 
-% args:
-%     subjname (str): subject name
-%     run (int): one of [1,2,3]
-%                which set of transforms to run (runs 1 & 2 take ~24 hours)
-%                you need to run all 3 for all parcels
-%                runs 1,2 can be run concurrently. run 3 requires the first 2 to be finished
+% build the subject-space transforms needed before parcelizing anything.
+% run steps 1 to 3 separately.
 
 function parcel_transform_final(subjname, run)
 
-SUBJECTS_DIR = '../recons/';
-setenv('SUBJECTS_DIR', SUBJECTS_DIR )
+paths = emfl_paths();
+SUBJECTS_DIR = paths.recons_dir;
+setenv('SUBJECTS_DIR', SUBJECTS_DIR);
 
 fprintf('subject: %s\n',subjname);
 
 if run == 1
     %% cvs transform
-    % generate m3z file from subject space -> cvs
     cmd = ['mri_cvs_register --mov ' subjname ' --outdir ' ...
-        [SUBJECTS_DIR '../data_analysis/subj2cvs_tform/' subjname '/']];
+        fullfile(paths.data_analysis_dir, 'subj2cvs_tform', subjname)];
     unix(cmd);
 elseif run == 2
-    %% cvs-mni152 transform
+    %% cvs -> mni152 transform
     cmd = ['mri_cvs_register --mov ' subjname ' --mni --outdir ' ...
-        [SUBJECTS_DIR '../data_analysis/subj2cvsmni152_tform/' subjname '/']];
+        fullfile(paths.data_analysis_dir, 'subj2cvsmni152_tform', subjname)];
     unix(cmd);
 elseif run == 3
-    %% fsavg transform
-    outdir = [SUBJECTS_DIR '/../vols_vis/' subjname filesep 'bold/'];
-    tformdir = [SUBJECTS_DIR '/../data_analysis/fsavg2subj_tform/' subjname filesep]; mkdir(tformdir);
+    %% fsaverage transform
+    outdir = fullfile(paths.vols_vis_dir, subjname, 'bold');
+    tformdir = fullfile(paths.data_analysis_dir, 'fsavg2subj_tform', subjname);
+    mkdir(tformdir);
 
-    % register subject-specific functional to subject-specific anat
-    cmd = ['bbregister --s ' subjname ' --mov ' outdir 'vis.sm3.all/meanfunc.nii.gz '...
-           '--reg ' tformdir 'func2anat.lta --init-coreg --init-best-fsl --init-best-header --bold --nocleanup'];
+    % register subject functional to subject anatomy.
+    filepath_meanfunc = fullfile(outdir, 'vis.sm3.all', 'meanfunc.nii.gz');
+    filepath_func2anat = fullfile(tformdir, 'func2anat.lta');
+    cmd = ['bbregister --s ' subjname ' --mov ' filepath_meanfunc ...
+           ' --reg ' filepath_func2anat ' --init-coreg --init-best-fsl --init-best-header --bold --nocleanup'];
     unix(cmd);
 
-    % register fsavg to subject-specific anat
+    % register fsaverage anatomy to subject anatomy.
+    filepath_fsavg2anat = fullfile(tformdir, 'fsavg2anat.lta');
     cmd = ['bbregister --s ' subjname ' --mov $SUBJECTS_DIR/fsaverage/mri/orig.mgz '...
-           '--reg ' tformdir 'fsavg2anat.lta --init-coreg --init-best-fsl --init-best-header --t1 --nocleanup'];
+           ' --reg ' filepath_fsavg2anat ' --init-coreg --init-best-fsl --init-best-header --t1 --nocleanup'];
     unix(cmd);
 
-    % get the registration matrix by concatenating the previous steps
-    cmd = ['mri_concatenate_lta -invert2 ' tformdir 'fsavg2anat.lta '...
-        tformdir 'func2anat.lta ' tformdir 'fsavg2func.lta'];
+    % concatenate the transforms.
+    filepath_fsavg2func = fullfile(tformdir, 'fsavg2func.lta');
+    cmd = ['mri_concatenate_lta -invert2 ' filepath_fsavg2anat ...
+        ' ' filepath_func2anat ' ' filepath_fsavg2func];
     unix(cmd);
 
     %% mni152 transform
-    % get the mni152 to subject anat transformation matrix
-    cmd = ['mni152reg --s ' subjname]; % make sure the subject is in the SUBJECTS_DIR
-    % the tform matrix reg.mni152.2mm.lta will be stored in SUBJECTS_DIR under subject-specific mri/transforms/ 
+    % write reg.mni152.2mm.lta under the subject transforms directory.
+    cmd = ['mni152reg --s ' subjname];
     unix(cmd);
 
-    %% mni2fsavg transform
-    % concatenate the mni2fsavg transformation with the func2anat
-    % trasnsformation (under data_analysis/fsavg2subj_tform/) to get mni152
-    % to subject functional transformation matrix
-    cmd = ['mri_concatenate_lta -invert2 ' SUBJECTS_DIR ...
-        subjname '/mri/transforms/reg.mni152.2mm.lta ' ...
-        tformdir 'func2anat.lta ' tformdir 'mni152_to_func.lta'];
+    %% mni152 -> subject functional transform
+    filepath_mni152reg = fullfile(SUBJECTS_DIR, subjname, 'mri', 'transforms', 'reg.mni152.2mm.lta');
+    filepath_mni152_to_func = fullfile(tformdir, 'mni152_to_func.lta');
+    cmd = ['mri_concatenate_lta -invert2 ' filepath_mni152reg ...
+        ' ' ...
+        filepath_func2anat ' ' filepath_mni152_to_func];
     unix(cmd);    
 end
 

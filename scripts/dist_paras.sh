@@ -1,12 +1,18 @@
 #!/bin/bash
 
+set -euo pipefail
+
 id=$1
 
-cd ../temp/
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+TEMP_DIR="${PROJECT_DIR}/temp"
+
+cd "${TEMP_DIR}"
 
 for file in *.para *.txt; do
 
-    run=$(echo $file | grep -o '[0-9]' | tail -n 1)
+    run=$(echo "$file" | grep -o '[0-9]' | tail -n 1)
 
     if echo "$file" | grep -q "vis"; then
         exp="vis"
@@ -33,7 +39,7 @@ for file in *.para *.txt; do
         newfile="kaneff${id}_${run}_spwm.para"
     fi
 
-    mkdir -p "../paras_$exp/kaneff$id/"
-    mv "$file" "../paras_$exp/kaneff$id/$newfile"
+    mkdir -p "${PROJECT_DIR}/paras_${exp}/kaneff${id}/"
+    mv "$file" "${PROJECT_DIR}/paras_${exp}/kaneff${id}/${newfile}"
 
 done
